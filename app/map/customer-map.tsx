@@ -1,33 +1,48 @@
 "use client"
 
-import "leaflet/dist/leaflet.css"
+import Link from "next/link"
 
-import { ArrowLeft, MapPin, Search, UserRound } from "lucide-react"
+import "leaflet/dist/leaflet.css"
 import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from "react-leaflet"
 import { useEffect, useMemo, useState } from "react"
+import { api } from "../../lib/client-api"
+import type { MapStore } from "../../types/api"
 
-const customers = [
-  { name: "Autoservicio El Encuentro", type: "Almacén", seller: "Martina Ríos", visits: 8, color: "#2166f3", position: [-34.6037, -58.3816] as [number, number] },
-  { name: "Despensa Don Carlos", type: "Despensa", seller: "Lucas Vega", visits: 5, color: "#32a269", position: [-34.6092, -58.3924] as [number, number] },
-  { name: "Almacén La Esquina", type: "Almacén", seller: "Martina Ríos", visits: 7, color: "#f0a529", position: [-34.5961, -58.3692] as [number, number] },
-  { name: "Supermercado Norte", type: "Supermercado", seller: "Sofía Cruz", visits: 11, color: "#9b6ee5", position: [-34.5845, -58.3755] as [number, number] },
-]
-
-function RecenterMap({ position }: { position: [number, number] }) {
+function Recenter({ position }: { position: [number, number] }) {
   const map = useMap()
-  useEffect(() => { map.flyTo(position, 14, { duration: 0.6 }) }, [map, position])
+  useEffect(()=>{map.flyTo(position,14,{duration:.6})},[map,position])
   return null
 }
-
-export default function CustomerMapPage() {
-  const [query, setQuery] = useState("")
-  const [selected, setSelected] = useState(customers[0])
-  const filtered = useMemo(() => customers.filter((customer) => customer.name.toLowerCase().includes(query.toLowerCase()) || customer.seller.toLowerCase().includes(query.toLowerCase())), [query])
-
-  return (
-    <main className="min-h-screen bg-[#f5f8fc] text-[#17243a]">
-      <header className="flex h-[73px] items-center justify-between border-b border-[#e6ebf2] bg-white px-5 sm:px-9"><div className="flex items-center gap-3"><a href="/" className="grid size-8 place-items-center rounded-lg text-[#718096] hover:bg-[#f1f5fa]" aria-label="Volver"><ArrowLeft size={17} /></a><div><p className="text-xs text-[#718096]">Shippe.AR / Clientes</p><h1 className="text-[19px] font-bold">Mapa de comercios</h1></div></div><a href="/settings" className="flex items-center gap-2 rounded-lg border border-[#dce4ef] px-3 py-2 text-xs font-semibold text-[#52627b] hover:bg-[#f5f8fc]"><UserRound size={14} /> Configuración</a></header>
-      <div className="mx-auto grid max-w-[1250px] gap-5 p-5 sm:p-8 lg:grid-cols-[300px_1fr]"><section className="rounded-2xl border border-[#dce4ef] bg-white p-4"><div className="mb-5"><h2 className="font-bold">Clientes y comercios</h2><p className="mt-1 text-xs text-[#718096]">{customers.length} puntos de venta registrados</p></div><label className="relative block"><Search className="absolute left-3 top-3 text-[#8b98aa]" size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar comercio o vendedor" className="h-10 w-full rounded-lg border border-[#dce4ef] pl-9 pr-3 text-xs outline-none focus:border-[#2166f3]" /></label><div className="mt-4 flex flex-col gap-2">{filtered.map((customer) => <button key={customer.name} onClick={() => setSelected(customer)} className={`w-full rounded-xl border p-3 text-left transition ${selected.name === customer.name ? "border-[#2166f3] bg-[#e9f0ff]" : "border-[#e6ebf2] hover:bg-[#f5f8fc]"}`}><div className="flex items-start gap-3"><span className="mt-1 size-2.5 shrink-0 rounded-full" style={{ background: customer.color }} /><span className="min-w-0"><strong className="block truncate text-xs">{customer.name}</strong><span className="mt-1 block text-[11px] text-[#718096]">{customer.seller} · {customer.visits} visitas</span></span></div></button>)}</div></section><section className="overflow-hidden rounded-2xl border border-[#dce4ef] bg-white"><div className="flex items-center justify-between border-b border-[#e6ebf2] px-5 py-4"><div><h2 className="font-bold">Mapa de cobertura</h2><p className="mt-1 text-xs text-[#718096]">Seleccioná un punto para ver el detalle del comercio.</p></div><span className="flex items-center gap-1.5 rounded-full bg-[#f1f5fa] px-3 py-1.5 text-[11px] font-semibold text-[#52627b]"><MapPin size={13} /> Buenos Aires</span></div><div className="h-[520px] w-full"><MapContainer center={selected.position} zoom={14} scrollWheelZoom className="z-0 h-full w-full"><TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" /><RecenterMap position={selected.position} />{customers.map((customer) => <CircleMarker key={customer.name} center={customer.position} radius={10} pathOptions={{ color: "#ffffff", weight: 3, fillColor: customer.color, fillOpacity: 1 }} eventHandlers={{ click: () => setSelected(customer) }}><Popup><strong>{customer.name}</strong><br />{customer.type} · {customer.seller}<br />{customer.visits} visitas registradas</Popup></CircleMarker>)}</MapContainer></div></section></div>
-    </main>
-  )
+const rosario: [number,number]=[-32.9468,-60.6393]
+const colores: Record<string,string>={premium:"#9b6ee5",estandar:"#2166f3",basico:"#32a269"}
+export default function CustomerMapPage({embedded=false}:{embedded?:boolean}) {
+  const [stores,setStores]=useState<MapStore[]>([])
+  const [selectedId,setSelectedId]=useState("")
+  const [query,setQuery]=useState("")
+  const [error,setError]=useState("")
+  const [loaded,setLoaded]=useState(false)
+  useEffect(()=>{let live=true;api<MapStore[]>("/api/mapa").then(rows=>{if(live){setStores(rows);setLoaded(true)}}).catch(e=>{if(live){setError(e.message);setLoaded(true)}});return()=>{live=false}},[])
+  const filtered=useMemo(()=>stores.filter(s=>s.nombre.toLowerCase().includes(query.toLowerCase())),[stores,query])
+  const points=filtered.filter((s):s is MapStore & {lat:number;lng:number}=>s.lat!==null&&s.lng!==null)
+  const selected=points.find(s=>s.id===selectedId)||points[0]
+  const position: [number,number]=selected?[selected.lat,selected.lng]:rosario
+  return <main className="min-h-[500px] bg-[#f5f8fc] text-[#17243a]">
+    {!embedded&&<header className="flex items-center justify-between border-b bg-white p-5"><Link href="/" className="text-sm text-[#2166f3]">← Nueva visita</Link><h1 className="text-xl font-bold">Mapa de comercios</h1><Link href="/settings">Cuenta</Link></header>}
+    {error&&<p role="alert" className="p-5 text-red-700">{error}</p>}
+    <div className="mx-auto grid max-w-[1250px] gap-5 p-5 lg:grid-cols-[300px_1fr]">
+      <section className="rounded-2xl border border-[#dce4ef] bg-white p-4"><h2 className="font-bold">Puntos de venta</h2><p className="mt-1 text-xs text-slate-500">{loaded?stores.length+" comercios · "+stores.filter(s=>s.es_demo).length+" DEMO":"Cargando..."}</p>
+        <input aria-label="Buscar comercio" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar comercio" className="my-4 h-10 w-full rounded-lg border px-3"/>
+        <div className="max-h-[520px] space-y-2 overflow-auto">{filtered.map(s=><button key={s.id} onClick={()=>setSelectedId(s.id)} className={"w-full rounded-xl border p-3 text-left "+(s.id===selected?.id?"border-[#2166f3] bg-[#e9f0ff]":"border-slate-200")}>
+          <b className="block text-sm">{s.nombre}</b><span className="mt-1 block text-xs text-slate-500">{s.formato||"Sin ficha"} · NSE {s.nse||"sin estimar"}{s.categoria?" · "+s.categoria:""}{s.lat===null?" · Sin ubicación":""}</span>
+        </button>)}</div>
+      </section>
+      <section className="overflow-hidden rounded-2xl border border-[#dce4ef] bg-white"><div className="border-b p-4"><h2 className="font-bold">Cobertura comercial · Rosario</h2><p className="text-xs text-slate-500">Las fichas y ofertas ampliadas se muestran según tu rol.</p></div>
+        <div className="h-[520px]"><MapContainer center={position} zoom={13} className="z-0 h-full w-full"><TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/><Recenter position={position}/>
+          {points.map(s=><CircleMarker key={s.id} center={[s.lat,s.lng]} radius={s.id===selected?.id?12:9} pathOptions={{color:"white",weight:2,fillColor:colores[s.categoria||""]||"#2166f3",fillOpacity:1}} eventHandlers={{click:()=>setSelectedId(s.id)}}>
+            <Popup><b>{s.nombre}</b><p>{s.formato||"Sin ficha"} · NSE {s.nse||"sin estimar"}</p>{s.es_demo&&<p>Datos ficticios DEMO</p>}{s.ficha&&<><p>Categoría: {s.categoria}</p><ul>{s.ficha.ofrecer_primero.map(p=><li key={p.producto}>{p.producto}</li>)}</ul><p>{s.ficha.limitaciones}</p></>}</Popup>
+          </CircleMarker>)}
+        </MapContainer></div>
+      </section>
+    </div>
+  </main>
 }

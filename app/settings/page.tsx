@@ -1,19 +1,35 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { getSession, signOut, type DemoUser } from "../../lib/auth"
-import { ArrowLeft, Bell, Check, ChevronRight, Globe2, LockKeyhole, UserRound } from "lucide-react"
+import { useRouter } from "next/navigation"
+
+import Link from "next/link"
+
+import { useEffect, useState, type FormEvent } from "react"
+import { getSession, updateName } from "../../lib/auth"
+import type { AppUser } from "../../types/api"
 
 export default function SettingsPage() {
-  const [saved, setSaved] = useState(false)
-  const [user, setUser] = useState<DemoUser | null>(null)
-  useEffect(() => {
-    const session = getSession()
-    if (!session) window.location.href = "/login"
-    else setUser(session)
-  }, [])
-  if (!user) return <main className="grid min-h-screen place-items-center bg-[#f5f8fc] text-sm text-[#718096]">Verificando acceso...</main>
-  const isAdmin = user.role === "admin"
-  return <main className="min-h-screen bg-[#f5f8fc] text-[#17243a]"><header className="flex h-[73px] items-center border-b border-[#e6ebf2] bg-white px-5 sm:px-9"><a href={isAdmin ? "/admin" : "/"} className="mr-3 grid h-8 w-8 place-items-center rounded-lg text-[#718096] hover:bg-[#f1f5fa]"><ArrowLeft size={17}/></a><div><p className="text-xs text-[#718096]">Shippe.AR / Cuenta</p><h1 className="text-[19px] font-bold">Configuración</h1></div></header><div className="mx-auto max-w-[900px] px-5 py-8 sm:px-9"><div className="mb-7"><h2 className="text-2xl font-bold tracking-tight">{isAdmin ? "Configuración de administración" : "Preferencias del vendedor"}</h2><p className="mt-1 text-sm text-[#718096]">{isAdmin ? "Controlá tu cuenta y el acceso de los vendedores." : "Administrá tu perfil y la forma en que recibís recomendaciones."}</p></div><div className="grid gap-5 lg:grid-cols-[1fr_280px]"><section className="rounded-2xl border border-[#dce4ef] bg-white p-6"><h3 className="font-bold">Perfil de usuario</h3><div className="mt-5 grid gap-4 sm:grid-cols-2"><label className="text-sm font-semibold">Nombre<input defaultValue="Martina Ríos" className="mt-2 h-11 w-full rounded-lg border border-[#dce4ef] px-3 text-sm outline-none focus:border-[#2166f3]"/></label><label className="text-sm font-semibold">Zona<input defaultValue="Zona Norte" className="mt-2 h-11 w-full rounded-lg border border-[#dce4ef] px-3 text-sm outline-none focus:border-[#2166f3]"/></label><label className="text-sm font-semibold sm:col-span-2">Correo<input defaultValue="martina@shippear.ar" type="email" className="mt-2 h-11 w-full rounded-lg border border-[#dce4ef] px-3 text-sm outline-none focus:border-[#2166f3]"/></label></div><button onClick={()=>setSaved(true)} className="mt-6 flex items-center gap-2 rounded-lg bg-[#2166f3] px-4 py-2.5 text-sm font-bold text-white">{saved && <Check size={16}/>} {saved ? "Cambios guardados" : "Guardar cambios"}</button></section><aside className="rounded-2xl border border-[#dce4ef] bg-white p-3"><Setting icon={<UserRound size={17}/>} title="Perfil" active/><Setting icon={<Bell size={17}/>} title="Notificaciones"/><Setting icon={<LockKeyhole size={17}/>} title="Seguridad"/><Setting icon={<Globe2 size={17}/>} title="Idioma"/><a href="/admin" className="mt-3 flex items-center justify-between rounded-lg bg-[#f5f8fc] px-3 py-3 text-sm font-semibold text-[#52627b]">Ver panel de admin<ChevronRight size={15}/></a></aside></div></div></main>
+  const router = useRouter()
+  const [user, setUser] = useState<AppUser | null>(null)
+  const [nombre, setNombre] = useState("")
+  const [mensaje, setMensaje] = useState("")
+  const [error, setError] = useState("")
+  const [busy, setBusy] = useState(false)
+  useEffect(()=>{getSession().then(u=>{if(!u) router.replace("/login"); else {setUser(u);setNombre(u.name)}}).catch(e=>setError(e.message))},[router])
+  async function save(e: FormEvent) {
+    e.preventDefault();setBusy(true);setError("");setMensaje("")
+    try {await updateName(nombre);setMensaje("Nombre guardado en Supabase")} catch(e){setError(e instanceof Error?e.message:"No se pudo guardar")} finally{setBusy(false)}
+  }
+  return <main className="min-h-screen bg-[#f5f8fc] p-6 text-[#17243a]"><div className="mx-auto max-w-2xl">
+    <Link className="text-sm text-[#2166f3]" href={user?.role==="admin"?"/admin":"/"}>← Volver</Link>
+    <h1 className="my-6 text-2xl font-bold">Configuración de cuenta</h1>
+    {error&&<p role="alert" className="mb-4 text-red-700">{error}</p>}
+    {user?<form onSubmit={save} className="space-y-5 rounded-2xl border border-[#dce4ef] bg-white p-6">
+      <label className="block text-sm font-semibold">Nombre<input required maxLength={200} value={nombre} onChange={e=>setNombre(e.target.value)} className="mt-2 h-11 w-full rounded-lg border px-3"/></label>
+      <label className="block text-sm font-semibold">Correo<input disabled value={user.email} className="mt-2 h-11 w-full rounded-lg border bg-slate-50 px-3"/></label>
+      <p className="text-sm text-slate-600">Rol: {user.role==="admin"?"Administrador":"Vendedor"}. El correo y los permisos se administran en Supabase Auth.</p>
+      <button disabled={busy} className="rounded-lg bg-[#2166f3] px-4 py-2.5 font-semibold text-white disabled:opacity-50">{busy?"Guardando...":"Guardar nombre"}</button>
+      {mensaje&&<p role="status" className="text-green-700">{mensaje}</p>}
+    </form>:<p>Verificando acceso...</p>}
+  </div></main>
 }
-function Setting({icon,title,active}:{icon:React.ReactNode,title:string,active?:boolean}){return <button className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm ${active?"bg-[#e9f0ff] font-bold text-[#2166f3]":"text-[#52627b] hover:bg-[#f5f8fc]"}`}>{icon}{title}<ChevronRight className="ml-auto" size={15}/></button>}

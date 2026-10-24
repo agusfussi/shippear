@@ -1,48 +1,118 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { getSession, signOut } from "../lib/auth"
-import { ArrowUp, Camera, ChevronDown, Clock3, FileAudio, ImagePlus, MapPin, Mic, MoreHorizontal, Paperclip, Plus, Search, Send, Sparkles, Store, UserRound, X } from "lucide-react"
+import { useRouter } from "next/navigation"
 
-const products = [
-  { name:"Café Torrado Molido 500g", tag:"Alta oportunidad", color:"#f0b429", reason:"El perfil de clientes busca rendimiento y precio. Ideal para el desayuno diario.", price:"$ 4.890" },
-  { name:"Café Instantáneo 100g", tag:"Venta rápida", color:"#4b83f5", reason:"Formato accesible para nuevos compradores y espacios de góndola pequeños.", price:"$ 3.490" },
-  { name:"Yerba Mate Suave 1kg", tag:"Venta cruzada", color:"#40a672", reason:"Complementa la compra habitual y aumenta el ticket con una categoría cercana.", price:"$ 5.990" },
-]
+import Link from "next/link"
+import Image from "next/image"
+
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react"
+import { Camera, MapPin, Plus, Send, Sparkles, Store, X } from "lucide-react"
+import { getSession, signOut } from "../lib/auth"
+import { api, post } from "../lib/client-api"
+import { subirFotos } from "../lib/db/browser"
+import type { AppUser, VisitSummary } from "../types/api"
+import type { Ficha } from "../types/ficha"
+
+type Comercio = { id:string; nombre:string; direccion:string|null; es_demo:boolean }
+type FotoRegistro = Awaited<ReturnType<typeof subirFotos>>[number]
+const fecha=(s:string)=>new Date(s).toLocaleString("es-AR",{timeZone:"America/Argentina/Buenos_Aires",dateStyle:"short",timeStyle:"short"})
 
 export default function SellerPage() {
-  const [message, setMessage] = useState("")
-  const [ready, setReady] = useState(false)
-  useEffect(() => {
-    const user = getSession()
-    if (!user) window.location.href = "/login"
-    else if (user.role !== "seller") window.location.href = "/admin"
-    else setReady(true)
-  }, [])
-  const [sent, setSent] = useState(false)
-  const [photos, setPhotos] = useState<string[]>([])
-  const [audioName, setAudioName] = useState("")
-  const fileRef = useRef<HTMLInputElement>(null)
-  const audioRef = useRef<HTMLInputElement>(null)
-  const send = () => { if (!message.trim() && !photos.length && !audioName) return; setSent(true); setMessage("") }
-  if (!ready) return <main className="grid min-h-screen place-items-center bg-[#f5f8fc] text-sm text-[#718096]">Verificando acceso...</main>
-  return <div className="min-h-screen flex bg-[#f5f8fc] text-[#17243a]">
-    <aside className="hidden w-[248px] shrink-0 flex-col bg-[#0b1f3a] text-white lg:flex">
-      <div className="flex items-center gap-3 px-7 py-7"><div className="grid h-9 w-9 place-items-center rounded-xl bg-[#2166f3]"><Sparkles size={19}/></div><span className="text-[19px] font-bold tracking-tight">Shippe<span className="text-[#6d9dff]">.AR</span></span></div>
-      <div className="px-4"><p className="px-3 pb-3 text-[10px] font-bold uppercase tracking-[.16em] text-[#7890b3]">Workspace</p><Nav href="/" active icon={<Sparkles size={17}/>} label="Nueva visita"/><Nav href="/map" icon={<MapPin size={17}/>} label="Mapa de clientes"/><Nav href="#historial" icon={<Clock3 size={17}/>} label="Historial"/><Nav href="#comercios" icon={<Store size={17}/>} label="Mis comercios"/></div>
-      <div className="mt-auto border-t border-white/10 p-5"><div className="flex items-center gap-3"><div className="grid h-9 w-9 place-items-center rounded-full bg-[#d5e2ff] text-sm font-bold text-[#2166f3]">MR</div><div><p className="text-sm font-semibold">Martina Ríos</p><p className="text-xs text-[#7890b3]">Representante · Zona Norte</p></div><MoreHorizontal className="ml-auto text-[#7890b3]" size={17}/></div></div>
-    </aside>
-    <main className="flex min-w-0 flex-1 flex-col">
-      <header className="flex h-[73px] items-center justify-between border-b border-[#e6ebf2] bg-white px-5 sm:px-9"><div><p className="text-xs text-[#718096]">Martes, 24 de octubre</p><h1 className="text-[19px] font-bold">Nueva visita</h1></div><div className="flex items-center gap-3"><div className="hidden items-center gap-2 sm:flex"><a href="/map" className="rounded-lg border border-[#dce4ef] px-3 py-2 text-xs font-semibold text-[#52627b] transition hover:bg-[#f5f8fc]">Mapa de clientes</a><a href="/settings" aria-label="Abrir configuración" className="rounded-lg border border-[#dce4ef] px-3 py-2 text-xs font-semibold text-[#52627b] transition hover:bg-[#f5f8fc]">Configuración</a><button onClick={() => { signOut(); window.location.href = "/login" }} className="rounded-lg border border-[#dce4ef] px-3 py-2 text-xs font-semibold text-[#52627b] transition hover:bg-[#f5f8fc]">Cerrar sesión</button></div><button className="grid h-9 w-9 place-items-center rounded-full bg-[#e5edff] text-xs font-bold text-[#2166f3]">MR</button></div></header>
-      <div className="mx-auto flex w-full max-w-[1040px] flex-1 flex-col px-5 py-7 sm:px-9">
-        <div className="mb-7 flex items-center justify-between"><div><h2 className="text-2xl font-bold tracking-tight">¿Qué vemos hoy?</h2><p className="mt-1 text-sm text-[#718096]">Cargá información del punto de venta y recibí una recomendación.</p></div><a href="#comercio" className="hidden items-center gap-2 text-sm font-semibold text-[#2166f3] sm:flex"><Plus size={17}/> Nuevo comercio</a></div>
-        <div className="mb-6 flex items-center gap-3 rounded-xl border border-[#dce4ef] bg-white px-4 py-3 shadow-[0_2px_8px_rgba(31,56,88,.03)]"><div className="grid h-8 w-8 place-items-center rounded-lg bg-[#e9f0ff] text-[#2166f3]"><Store size={16}/></div><div className="flex-1"><p className="text-[10px] font-bold uppercase tracking-wider text-[#8b98aa]">Comercio seleccionado</p><p className="text-sm font-semibold">Autoservicio El Encuentro</p></div><span className="hidden text-xs text-[#718096] sm:block">Av. San Martín 1842</span><ChevronDown size={17} className="text-[#718096]"/></div>
-        {!sent ? <section className="rounded-2xl border border-[#dce4ef] bg-white p-4 shadow-[0_6px_24px_rgba(31,56,88,.05)] sm:p-6"><div className="mb-5 flex items-start gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#e9f0ff] text-[#2166f3]"><Sparkles size={20}/></div><div><p className="font-semibold">Contale a la IA sobre tu visita</p><p className="mt-1 text-sm leading-6 text-[#718096]">Podés escribir una nota, adjuntar fotos de la góndola o enviar un audio.</p></div></div><div className="rounded-xl border border-[#e4eaf2] bg-[#fbfcfe] p-3 focus-within:border-[#9cb9f9] focus-within:ring-4 focus-within:ring-[#e9f0ff]"><textarea value={message} onChange={e=>setMessage(e.target.value)} placeholder="Ej: Es un almacén de barrio, mucho movimiento por la mañana..." className="min-h-[112px] w-full resize-none bg-transparent p-1 text-sm leading-6 outline-none placeholder:text-[#aab5c4]"/><div className="flex items-center justify-between border-t border-[#edf1f6] pt-3"><div className="flex gap-1"><button onClick={()=>fileRef.current?.click()} aria-label="Abrir cámara para sacar fotos" className="flex h-8 items-center gap-1.5 rounded-lg bg-[#e9f0ff] px-2.5 text-xs font-semibold text-[#2166f3] hover:bg-[#dfeaff]"><Camera size={16}/> Cámara</button><button onClick={()=>audioRef.current?.click()} aria-label="Grabar o adjuntar audio" className={`grid h-8 w-8 place-items-center rounded-lg text-[#718096] hover:bg-[#eef3fb] hover:text-[#2166f3] ${audioName?"bg-[#e9f0ff] text-[#2166f3]":""}`}><Mic size={17}/></button><input ref={fileRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={e=>setPhotos(Array.from(e.target.files||[]).map(f=>URL.createObjectURL(f)))} /><input ref={audioRef} type="file" accept="audio/*" className="hidden" onChange={e=>setAudioName(e.target.files?.[0]?.name||"")} /></div><button onClick={send} className="flex items-center gap-2 rounded-lg bg-[#2166f3] px-3.5 py-2 text-xs font-bold text-white shadow-[0_5px_12px_rgba(33,102,243,.25)] hover:bg-[#1657da]">Analizar visita <ArrowUp size={15}/></button></div></div>{photos.length>0 && <div className="mt-3 flex gap-2">{photos.map((src,i)=><div key={src} className="relative h-16 w-16 overflow-hidden rounded-lg"><img src={src} alt={`Foto de góndola ${i+1}`} className="h-full w-full object-cover"/><button onClick={()=>setPhotos(p=>p.filter(x=>x!==src))} className="absolute right-1 top-1 rounded-full bg-black/60 p-0.5 text-white"><X size={11}/></button></div>)}</div>}<div className="mt-4 flex flex-wrap gap-2 text-xs text-[#718096]"><span className="flex items-center gap-1.5 rounded-full bg-[#f1f5fa] px-3 py-1.5"><ImagePlus size={13}/> Fotos de góndola</span><span className="flex items-center gap-1.5 rounded-full bg-[#f1f5fa] px-3 py-1.5"><FileAudio size={13}/> Audio de visita</span></div></section> : <Results onReset={()=>{setSent(false);setPhotos([])}}/>}
-        <div className="mt-8"><div className="mb-3 flex items-center justify-between"><h3 className="text-sm font-bold">Últimas visitas</h3><button className="text-xs font-semibold text-[#2166f3]">Ver historial</button></div><div className="grid gap-3 sm:grid-cols-3"><VisitCard name="Despensa Don Carlos" meta="Ayer · 11:42" status="3 recomendaciones"/><VisitCard name="Almacén La Esquina" meta="22 oct · 16:08" status="Visitado"/><VisitCard name="Supermercado Norte" meta="20 oct · 09:15" status="5 fotos analizadas"/></div></div>
-      </div>
+  const router = useRouter()
+  const [user,setUser]=useState<AppUser|null>(null)
+  const [comercios,setComercios]=useState<Comercio[]>([])
+  const [comercioId,setComercioId]=useState("")
+  const [visitas,setVisitas]=useState<VisitSummary[]>([])
+  const [notas,setNotas]=useState("")
+  const [files,setFiles]=useState<File[]>([])
+  const [ficha,setFicha]=useState<Ficha|null>(null)
+  const [pregunta,setPregunta]=useState("")
+  const [chat,setChat]=useState<{rol:string;contenido:string}[]>([])
+  const [error,setError]=useState("")
+  const [busy,setBusy]=useState(false)
+  const [nuevo,setNuevo]=useState(false)
+  const [draftId,setDraftId]=useState("")
+  const [aviso,setAviso]=useState("")
+  const draft=useRef<{id?:string;requestId?:string;fotos?:FotoRegistro[];registradas?:boolean}>({})
+  const fileRef=useRef<HTMLInputElement>(null)
+  const chatDraft=useRef<{texto:string;requestId:string}|null>(null)
+  const previews=useMemo(()=>files.map(file=>URL.createObjectURL(file)),[files])
+  useEffect(()=>()=>{previews.forEach(url=>URL.revokeObjectURL(url))},[previews])
+  useEffect(()=>{
+    getSession().then(async u=>{
+      if(!u){router.replace("/login");return}
+      setUser(u)
+      const [stores,history]=await Promise.all([api<Comercio[]>("/api/comercios"),api<VisitSummary[]>("/api/visitas")])
+      setComercios(stores);setComercioId(stores[0]?.id||"");setVisitas(history)
+    }).catch(e=>setError(e.message))
+  },[router])
+
+  function reset(id=comercioId) {draft.current={};chatDraft.current=null;if(fileRef.current)fileRef.current.value="";setDraftId("");setFicha(null);setFiles([]);setNotas("");setChat([]);setError("");setAviso("");setComercioId(id)}
+  async function analizar() {
+    if(!comercioId||(!files.length&&!draft.current.registradas)){setError("Elegí un comercio y adjuntá al menos una foto");return}
+    setBusy(true);setError("")
+    try {
+      draft.current.requestId ||= crypto.randomUUID()
+      if(!draft.current.id) {
+        const visit=await post<{visita_id:string}>("/api/visitas",{comercio_id:comercioId,client_request_id:draft.current.requestId,notas})
+        draft.current.id=visit.visita_id;setDraftId(visit.visita_id)
+      }
+      if(!draft.current.registradas) {
+        draft.current.fotos ||= await subirFotos(comercioId,draft.current.id,files)
+        await post("/api/visitas/"+draft.current.id+"/fotos",{fotos:draft.current.fotos})
+        draft.current.registradas=true
+      }
+      const result=await post<{ficha:Ficha}>("/api/visitas/"+draft.current.id+"/analizar",{request_id:draft.current.requestId})
+      setFicha(result.ficha)
+      setVisitas(await api<VisitSummary[]>("/api/visitas"))
+    } catch(e){setError(e instanceof Error?e.message:"No se pudo analizar")} finally{setBusy(false)}
+  }
+  async function abrirVisita(v:VisitSummary) {
+    setBusy(true);setError("");setAviso("")
+    try{
+      const [stored,messages]=await Promise.all([api<{data:Ficha}|null>("/api/visitas/"+v.id+"/ficha"),api<{rol:string;contenido:string}[]>("/api/visitas/"+v.id+"/chat")])
+      draft.current={id:v.id,requestId:crypto.randomUUID()};setDraftId(v.id);setComercioId(v.comercio_id);setNotas(v.notas||"");setFiles([]);setFicha(stored?.data||null);setChat(messages)
+    }catch(e){setError(e instanceof Error?e.message:"No se pudo abrir")}finally{setBusy(false)}
+  }
+  async function conversar(e:FormEvent) {
+    e.preventDefault();if(!pregunta.trim()||!draft.current.id)return
+    setBusy(true);setError("")
+    const texto=pregunta.trim()
+    if(chatDraft.current?.texto!==texto)chatDraft.current={texto,requestId:crypto.randomUUID()}
+    try{
+      const result=await post<{contenido:string}>("/api/visitas/"+draft.current.id+"/chat",{contenido:texto,request_id:chatDraft.current.requestId})
+      setChat(c=>[...c,{rol:"user",contenido:texto},{rol:"assistant",contenido:result.contenido}]);setPregunta("");chatDraft.current=null
+    }catch(e){setError(e instanceof Error?e.message:"No se pudo responder")}finally{setBusy(false)}
+  }
+  async function crearComercio(e:FormEvent<HTMLFormElement>) {
+    e.preventDefault();setBusy(true);setError("")
+    const form=new FormData(e.currentTarget)
+    try{
+      const store=await post<Comercio>("/api/comercios",{nombre:form.get("nombre"),direccion:form.get("direccion")||null,lat:form.get("lat")?Number(form.get("lat")):null,lng:form.get("lng")?Number(form.get("lng")):null})
+      setComercios(c=>[...c,store]);reset(store.id);setNuevo(false)
+    }catch(e){setError(e instanceof Error?e.message:"No se pudo crear")}finally{setBusy(false)}
+  }
+  const selected=comercios.find(c=>c.id===comercioId)
+  if(!user)return <main className="grid min-h-screen place-items-center bg-[#f5f8fc] p-6">{error?<p role="alert" className="text-red-700">{error}</p>:<p>Verificando acceso...</p>}</main>
+  return <div className="min-h-screen bg-[#f5f8fc] text-[#17243a]">
+    <header className="flex flex-wrap items-center justify-between gap-3 border-b bg-white px-6 py-5"><Link href="/" className="flex items-center gap-2 text-xl font-bold"><Sparkles className="text-[#2166f3]"/>Shippe.AR</Link><nav className="flex gap-4 text-sm"><Link href="/map">Mapa</Link>{user.role==="admin"&&<Link href="/admin">Administración</Link>}<Link href="/settings">Cuenta</Link><button onClick={async()=>{try{await signOut();router.replace("/login")}catch(e){setError(e instanceof Error?e.message:"No se pudo cerrar sesión")}}}>Cerrar sesión</button></nav></header>
+    <main className="mx-auto max-w-[1040px] space-y-6 px-5 py-8 sm:px-9">
+      <div className="flex items-center justify-between"><div><p className="text-xs text-slate-500">{user.name}</p><h1 className="mt-1 text-2xl font-bold">Nueva visita</h1><p className="mt-1 text-sm text-slate-500">Fotos y contexto para decidir qué ofrecer.</p></div><button disabled={busy} onClick={()=>setNuevo(!nuevo)} className="flex items-center gap-1 text-sm font-bold text-[#2166f3]"><Plus size={17}/>Nuevo comercio</button></div>
+      {nuevo&&<form onSubmit={crearComercio} className="grid gap-3 rounded-2xl border bg-white p-5 sm:grid-cols-2"><label className="text-sm">Nombre<input name="nombre" required maxLength={200} className="mt-1 h-10 w-full rounded border px-3"/></label><label className="text-sm">Dirección<input name="direccion" maxLength={500} className="mt-1 h-10 w-full rounded border px-3"/></label><label className="text-sm">Latitud (opcional)<input name="lat" type="number" step="any" min="-90" max="90" className="mt-1 h-10 w-full rounded border px-3"/></label><label className="text-sm">Longitud (opcional)<input name="lng" type="number" step="any" min="-180" max="180" className="mt-1 h-10 w-full rounded border px-3"/></label><button disabled={busy} className="rounded-lg bg-[#2166f3] px-4 py-2 text-white">Guardar comercio</button><p className="text-xs text-slate-500">Sin coordenadas se guarda el comercio, pero no aparece como punto en el mapa.</p></form>}
+      <label className="flex items-center gap-3 rounded-xl border border-[#dce4ef] bg-white p-4"><Store size={20} className="text-[#2166f3]"/><span className="text-sm font-semibold">Comercio</span><select aria-label="Comercio seleccionado" disabled={busy} value={comercioId} onChange={e=>reset(e.target.value)} className="min-w-0 flex-1 bg-white p-2"><option value="" disabled>Elegí un comercio</option>{comercios.map(s=><option key={s.id} value={s.id}>{s.nombre}</option>)}</select>{selected?.es_demo&&<span className="rounded-full bg-amber-100 px-2 py-1 text-xs">DEMO</span>}</label>
+      {error&&<p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>}
+      {!ficha?<section className="rounded-2xl border border-[#dce4ef] bg-white p-6"><h2 className="flex items-center gap-2 font-bold"><Sparkles size={20} className="text-[#2166f3]"/>Contale a la IA sobre tu visita</h2><textarea aria-label="Notas de la visita" disabled={busy||!!draftId} value={notas} onChange={e=>setNotas(e.target.value)} maxLength={10000} placeholder="Ej: autoservicio con dos cajas. Adjunto fotos de las góndolas..." className="mt-5 min-h-32 w-full rounded-xl border bg-[#fbfcfe] p-4 text-sm"/>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3"><button disabled={busy||!!draftId} onClick={()=>fileRef.current?.click()} className="flex items-center gap-2 rounded-lg bg-[#e9f0ff] px-4 py-2.5 text-sm font-bold text-[#2166f3]"><Camera size={17}/>Adjuntar fotos</button><input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={e=>setFiles(Array.from(e.target.files||[]))}/><button disabled={busy||!comercioId} onClick={analizar} className="flex items-center gap-2 rounded-lg bg-[#2166f3] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{busy?"Procesando...":draftId?"Reintentar análisis":"Analizar visita"}<Send size={15}/></button></div>
+        <div className="mt-4 flex flex-wrap gap-3">{previews.map((src,i)=><div key={src} className="relative"><Image unoptimized width={80} height={80} src={src} alt={"Foto adjunta "+(i+1)} className="size-20 rounded-lg object-cover"/><button aria-label={"Quitar foto "+(i+1)} disabled={busy||!!draftId} onClick={()=>setFiles(f=>f.filter((_,n)=>n!==i))} className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white"><X size={12}/></button></div>)}</div>
+        <p className="mt-4 text-xs text-slate-500">Hasta 6 fotos JPEG/PNG/WebP y 12 MiB en total. Video y audio se incorporarán en otro flujo.</p>
+        {draftId&&<button onClick={()=>reset()} disabled={busy} className="mt-4 text-sm text-[#2166f3]">Empezar otra visita</button>}
+      </section>:<section className="space-y-4"><div className="flex justify-between"><h2 className="text-xl font-bold">Ficha del local</h2><button disabled={busy} onClick={()=>reset()} className="text-sm text-[#2166f3]">Nueva visita</button></div><div className="rounded-2xl border bg-white p-5"><div className="flex flex-wrap gap-2">{[ficha.formato.tipo,"NSE "+ficha.nse.nivel,ficha.categoria.valor].map(t=><span key={t} className="rounded-full bg-[#e9f0ff] px-3 py-1.5 text-sm">{t}</span>)}</div><p className="mt-3 text-sm">{ficha.categoria.motivo}</p><ul className="mt-3 list-inside list-disc text-sm text-slate-600">{ficha.nse.senales.map((s,i)=><li key={i}>{s}</li>)}</ul><p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{ficha.limitaciones}</p></div>
+        <h3 className="font-bold">Qué ofrecer primero</h3>{ficha.ofrecer_primero.map((p,i)=><article key={p.producto} className="flex gap-4 rounded-xl border bg-white p-4"><span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[#2166f3] font-bold text-white">{i+1}</span><div><h4 className="font-bold">{p.producto}</h4><p className="mt-1 text-sm text-slate-500">{p.argumento}</p></div></article>)}
+        <div className="grid gap-4 sm:grid-cols-2"><div className="rounded-xl border bg-white p-4"><b>Tiene</b><p className="mt-2 text-sm">{ficha.surtido.tiene.join(", ")||"Sin presencia confirmada"}</p></div><div className="rounded-xl border bg-white p-4"><b>Faltantes respaldados</b><p className="mt-2 text-sm">{ficha.surtido.le_falta.join(", ")||"A confirmar en el local"}</p></div></div>
+        <button onClick={async()=>{try{await navigator.clipboard.writeText(ficha.ofrecer_primero.map(p=>p.producto+" · cantidad a confirmar").join("\n"));setAviso("Propuesta copiada")}catch{setAviso("No se pudo acceder al portapapeles")}}} className="text-sm font-semibold text-[#2166f3]">Copiar propuesta de pedido</button>{aviso&&<p role="status" className="text-sm">{aviso}</p>}
+        <div className="rounded-2xl border bg-white p-5"><h3 className="font-bold">Repreguntale al asistente</h3><div className="mt-3 space-y-3">{chat.map((m,i)=><p key={i} className={"whitespace-pre-wrap rounded-lg p-3 text-sm "+(m.rol==="user"?"bg-[#e9f0ff]":"bg-slate-50")}>{m.contenido}</p>)}</div><form onSubmit={conversar} className="mt-4 flex gap-2"><input aria-label="Pregunta al asistente" maxLength={10000} value={pregunta} onChange={e=>setPregunta(e.target.value)} placeholder="¿Con cuál conviene empezar?" className="min-w-0 flex-1 rounded-lg border px-3 py-2"/><button disabled={busy||!pregunta.trim()} className="rounded-lg bg-[#2166f3] px-4 text-sm font-bold text-white disabled:opacity-50">Enviar</button></form></div>
+      </section>}
+      <section id="historial"><h2 className="mb-3 font-bold">Historial de visitas</h2><div className="grid gap-3 sm:grid-cols-3">{visitas.map(v=><button key={v.id} disabled={busy} onClick={()=>abrirVisita(v)} className="rounded-xl border bg-white p-4 text-left hover:border-[#2166f3]"><MapPin size={16} className="mb-2 text-[#2166f3]"/><b className="block text-sm">{v.comercios?.nombre||"Comercio"}</b><span className="mt-1 block text-xs text-slate-500">{fecha(v.fecha_visita)}</span></button>)}</div>{!visitas.length&&<p className="text-sm text-slate-500">Todavía no hay visitas para tu cuenta.</p>}</section>
     </main>
   </div>
 }
-function Nav({icon,label,active,href}:{icon:React.ReactNode,label:string,active?:boolean,href:string}){return <a href={href} className={`mb-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm ${active?"bg-[#2166f3] font-semibold":"text-[#a9bad5] hover:bg-white/5"}`}>{icon}{label}</a>}
-function Results({onReset}:{onReset:()=>void}){return <section className="animate-in"><div className="mb-5 flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-[#e6f7ef] text-[#32a269]"><Sparkles size={19}/></div><div><p className="font-semibold">Análisis listo</p><p className="text-sm text-[#718096]">Autoservicio El Encuentro · Procesado en 4 segundos</p></div><button onClick={onReset} className="ml-auto text-xs font-semibold text-[#2166f3]">Nueva consulta</button></div><div className="mb-4 rounded-xl border border-[#dce4ef] bg-white p-5"><p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[#8b98aa]">Perfil detectado</p><div className="flex flex-wrap gap-2"><span className="rounded-full bg-[#e9f0ff] px-3 py-1.5 text-xs font-semibold text-[#2166f3]">Almacén de barrio</span><span className="rounded-full bg-[#f1f5fa] px-3 py-1.5 text-xs text-[#52627b]">Familias jóvenes</span><span className="rounded-full bg-[#f1f5fa] px-3 py-1.5 text-xs text-[#52627b]">Compra de reposición</span></div></div><p className="mb-3 text-sm font-bold">Top 3 para ofrecer</p><div className="grid gap-3">{products.map((p,i)=><div key={p.name} className="flex gap-4 rounded-xl border border-[#dce4ef] bg-white p-4"><div className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-lg text-sm font-bold text-white" style={{background:p.color}}>0{i+1}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h4 className="text-sm font-bold">{p.name}</h4><span className="rounded-full bg-[#f1f5fa] px-2 py-1 text-[10px] font-semibold text-[#52627b]">{p.tag}</span></div><p className="mt-1.5 text-xs leading-5 text-[#718096]">{p.reason}</p></div><p className="text-sm font-bold text-[#17243a]">{p.price}</p></div>)}</div></section>}
-function VisitCard({name,meta,status}:{name:string,meta:string,status:string}){return <div className="rounded-xl border border-[#e6ebf2] bg-white p-4"><div className="mb-3 flex items-center justify-between"><div className="grid h-8 w-8 place-items-center rounded-lg bg-[#f0f4f9] text-[#718096]"><Store size={15}/></div><span className="text-[10px] font-semibold text-[#32a269]">{status}</span></div><p className="truncate text-sm font-semibold">{name}</p><p className="mt-1 text-xs text-[#8b98aa]">{meta}</p></div>}
