@@ -1,6 +1,7 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { getSession, signOut } from "../lib/auth"
 import { ArrowUp, Camera, ChevronDown, Clock3, FileAudio, ImagePlus, MapPin, Mic, MoreHorizontal, Paperclip, Plus, Search, Send, Sparkles, Store, UserRound, X } from "lucide-react"
 
 const products = [
@@ -11,12 +12,20 @@ const products = [
 
 export default function SellerPage() {
   const [message, setMessage] = useState("")
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    const user = getSession()
+    if (!user) window.location.href = "/login"
+    else if (user.role !== "seller") window.location.href = "/admin"
+    else setReady(true)
+  }, [])
   const [sent, setSent] = useState(false)
   const [photos, setPhotos] = useState<string[]>([])
   const [audioName, setAudioName] = useState("")
   const fileRef = useRef<HTMLInputElement>(null)
   const audioRef = useRef<HTMLInputElement>(null)
   const send = () => { if (!message.trim() && !photos.length && !audioName) return; setSent(true); setMessage("") }
+  if (!ready) return <main className="grid min-h-screen place-items-center bg-[#f5f8fc] text-sm text-[#718096]">Verificando acceso...</main>
   return <div className="min-h-screen flex bg-[#f5f8fc] text-[#17243a]">
     <aside className="hidden w-[248px] shrink-0 flex-col bg-[#0b1f3a] text-white lg:flex">
       <div className="flex items-center gap-3 px-7 py-7"><div className="grid h-9 w-9 place-items-center rounded-xl bg-[#2166f3]"><Sparkles size={19}/></div><span className="text-[19px] font-bold tracking-tight">Shippe<span className="text-[#6d9dff]">.AR</span></span></div>
