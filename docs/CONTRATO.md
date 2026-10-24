@@ -32,8 +32,11 @@ fotos         (id, visita_id → visitas, tipo: 'fachada'|'gondola'|'extra', sto
 fichas        (id, visita_id → visitas UNIQUE, formato, nse, categoria, data jsonb,
                modelo, prompt_version, created_at)
 mensajes      (id, visita_id → visitas, rol: 'user'|'assistant', contenido, created_at)
-productos_lv  (id, nombre, categoria, presentacion, formatos_objetivo text[], nse_objetivo text[])
+productos_lv  (id, marca, nombre, categoria, subcategoria, presentacion, detalles,
+               formatos_objetivo text[], nse_objetivo text[])
 ```
+
+- `productos_lv` se carga desde el catálogo oficial del grupo (63 productos de La Virginia, Alicante, Virgin Islands, Litoral, Chocolino, Tuy y Giacomo). `id` es el código del catálogo (`LAV-001`, `ALI-006`…). `marca`, `subcategoria` y `detalles` vienen del catálogo; `formatos_objetivo` y `nse_objetivo` son estimación nuestra y hoy están en `lib/ai/catalogo.ts` (`catalogoDemo`), que sirve de fuente para el seed.
 
 - **Comercio ≠ visita.** Un comercio tiene muchas visitas; cada visita tiene sus fotos, su ficha y su chat. Eso nos da el "historial por comercio" del PLUS gratis.
 - `fichas.formato`, `fichas.nse` y `fichas.categoria` se duplican como columnas (además de `data`) para que el dashboard y el mapa filtren sin leer el JSON.
@@ -70,6 +73,19 @@ productos_lv  (id, nombre, categoria, presentacion, formatos_objetivo text[], ns
 - Los nombres de productos en `surtido` y `ofrecer_primero` **tienen que existir en `productos_lv`** (se pasa el catálogo en el prompt).
 - Feli valida la respuesta con un schema (zod) antes de guardarla. Si no valida: se reintenta una vez y si falla se devuelve error, nunca se guarda una ficha rota.
 - Los tipos TypeScript de esta ficha viven en un solo archivo (`types/ficha.ts`) y todos lo importan.
+
+**Cómo llamar a la IA desde las rutas (Feli → Tomi).** Todo se importa de `lib/ai` (solo servidor, modelo Gemini). No toca Supabase: la ruta baja las fotos/audios y pasa los bytes.
+
+```ts
+analizarFotos({ fotos, audios?, catalogo })        // → { ficha, modelo, promptVersion }  (lanza FichaInvalidaError si no valida tras 1 reintento)
+responderChat({ ficha, fotos?, historial?, mensaje, catalogo })
+  // mensaje: string | { mimeType, data }   (texto o nota de voz)
+  // → { respuesta, transcripcion? }        (transcripcion solo si fue audio: es lo que se guarda en mensajes.contenido)
+// fotos: { tipo: 'fachada'|'gondola'|'extra', mimeType, data: Buffer }[]   catalogo: filas de productos_lv
+```
+
+- Las notas de voz son opcionales y suman contexto; el audio no se guarda en Storage (si se quiere guardar, hay que sumarlo al §3).
+- Variables opcionales `AI_MODEL` y `AI_MODEL_RESPALDO` para cambiar los modelos de Gemini sin tocar código (por defecto `gemini-3.5-flash` y `gemini-3.1-flash-lite`). Si el principal falla por saturación o timeout se usa el de respaldo; `modelo` en el resultado dice cuál respondió.
 
 ## 5. Rutas API (Next.js, contrato Tomi ↔ Agus)
 
