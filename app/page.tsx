@@ -128,8 +128,6 @@ export default function SellerPage() {
       ),
     [filesBySlot]
   )
-    [filesBySlot]
-  )
 
   const slotPreviews = useMemo(() => {
     const entries: Array<{ slot: FotoTipo; indexInSlot: number; url: string; name: string }> = []
