@@ -996,17 +996,6 @@ export default function SellerPage() {
           <Nav href="/settings" icon={<Settings size={17} />} label="Configuración" />
         </div>
 
-        <div className="mx-4 mt-6 rounded-xl border border-white/10 bg-white/5 p-3.5">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-[#6d9dff]">
-            Contrato IA activo
-          </p>
-          <p className="mt-1 text-xs font-semibold text-white">
-            {comercioActual.modelo}
-          </p>
-          <p className="mt-0.5 text-[11px] text-[#a9bad5]">
-            Prompt {comercioActual.prompt_version} · Catálogo LV ({CATALOGO_PRODUCTOS_LV.length} SKUs)
-          </p>
-        </div>
 
         <div className="mt-auto border-t border-white/10 p-5">
           <div className="flex items-center gap-3">
@@ -1138,7 +1127,7 @@ export default function SellerPage() {
                   onClick={() => setSent((prev) => !prev)}
                   className="rounded-lg border border-[#dce4ef] bg-[#f8fafd] px-2.5 py-1.5 text-[11px] font-semibold text-[#2166f3] transition hover:bg-[#e9f0ff]"
                 >
-                  {sent ? "← Volver a cargar fotos" : "Ver última ficha (§4)"}
+                  {sent ? "← Volver a cargar fotos" : "Ver ficha"}
                 </button>
                 <button
                   type="button"
@@ -1357,10 +1346,11 @@ export default function SellerPage() {
                     <button
                       type="button"
                       onClick={() => abrirSelectorArchivo("gondola")}
-                      className="flex h-8 items-center gap-1 rounded-lg bg-[#e9f0ff] px-2.5 text-[11px] font-semibold text-[#2166f3] hover:bg-[#dfeaff]"
+                      aria-label="Abrir cámara rápida"
+                      title="Cámara rápida"
+                      className="grid size-8 place-items-center rounded-lg bg-[#e9f0ff] text-[#2166f3] hover:bg-[#dfeaff]"
                     >
                       <Camera size={14} />
-                      Cámara rápida
                     </button>
                     <button
                       type="button"
