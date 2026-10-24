@@ -1275,7 +1275,7 @@ export default function SellerPage() {
               </div>
 
               {/* 3 Slots de Fotos: fachada | gondola | extra */}
-              <div className="mb-4 grid grid-cols-1 gap-2.5 sm:grid-cols-3 sm:gap-3">
+              <div className="hidden">
                 {PHOTO_SLOTS_CONFIG.map((slot) => {
                   const slotPhotos = fotosPorSlot[slot.tipo]
                   const hasPhotos = slotPhotos.length > 0

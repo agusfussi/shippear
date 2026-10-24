@@ -522,7 +522,7 @@ export default function CustomerMapPage() {
   const [catFilter, setCatFilter] = useState<CategoriaValor | "todas">("todas")
   const [formatoFilter, setFormatoFilter] = useState<FormatoTipo | "todos">("todos")
   const [nseFilter, setNseFilter] = useState<NseNivel | "todos">("todos")
-  const [tileStyle, setTileStyle] = useState<TileStyle>("voyager")
+  const [tileStyle] = useState<TileStyle>("voyager")
   const [selectedId, setSelectedId] = useState<string>(DEFAULT_COMERCIOS[0].id)
 
   useEffect(() => {
@@ -629,58 +629,27 @@ export default function CustomerMapPage() {
       </header>
 
       <div className="mx-auto max-w-[1320px] space-y-4 p-3 sm:space-y-5 sm:p-7">
-        {/* Barra superior de resumen por Categoría (`premium | estandar | basico`) + Filtros */}
-        <section className="rounded-2xl border border-[#dce4ef] bg-white p-3.5 shadow-[0_2px_12px_rgba(31,56,88,.04)] sm:p-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            {/* Leyenda interactiva por Categoría */}
-            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-              <button
-                type="button"
-                onClick={() => setCatFilter("todas")}
-                className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition ${
-                  catFilter === "todas"
-                    ? "border-[#0b1f3a] bg-[#0b1f3a] text-white"
-                    : "border-[#dce4ef] bg-[#f8fafd] text-[#52627b] hover:bg-[#eef3fb]"
-                }`}
-              >
-                Todos ({comercios.length})
-              </button>
-
-              {(["premium", "estandar", "basico"] as CategoriaValor[]).map((catKey) => {
-                const meta = CATEGORIA_META[catKey]
-                const active = catFilter === catKey
-                return (
-                  <button
-                    key={catKey}
-                    type="button"
-                    onClick={() => setCatFilter(active ? "todas" : catKey)}
-                    className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-bold transition ${
-                      active
-                        ? `${meta.bg} ${meta.text} ${meta.border} ring-2 ring-[#2166f3]/20`
-                        : "border-[#e6ebf2] bg-white text-[#17243a] hover:bg-[#f8fafd]"
-                    }`}
-                  >
-                    <span
-                      className="size-2.5 shrink-0 rounded-full"
-                      style={{ background: meta.color }}
-                    />
-                    <span className="capitalize">{catKey}</span>
-                    <span className="rounded-md bg-black/5 px-1.5 py-0.5 text-[10px]">
-                      {countsByCategoria[catKey]}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-
-
-          </div>
-        </section>
-
-        {/* Grilla Principal: Lista de Comercios + Mapa CartoDB + Vista Previa de la Última Ficha */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[310px_1fr_360px]">
-          {/* Columna 1: Lista filtrable de comercios */}
+        {/* Mapa gratuito de OpenStreetMap y listado compacto de locales */}
+        <div className="grid grid-cols-1 gap-4">
           <section className="flex flex-col rounded-2xl border border-[#dce4ef] bg-white p-3.5 sm:p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-base font-bold">Locales</h2>
+              <span className="text-xs text-[#718096]">{filtered.length} locales</span>
+            </div>
+            <label className="relative block">
+              <Search className="absolute left-3 top-2.5 text-[#8b98aa]" size={15} />
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar local..." className="h-9 w-full rounded-xl border border-[#dce4ef] pl-9 pr-3 text-xs outline-none focus:border-[#2166f3]" />
+            </label>
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+              {filtered.map((comercio) => (
+                <button key={comercio.id} type="button" onClick={() => setSelectedId(comercio.id)} className={`shrink-0 rounded-xl border px-3 py-2 text-left text-xs font-semibold ${selected.id === comercio.id ? "border-[#2166f3] bg-[#e9f0ff] text-[#17243a]" : "border-[#e6ebf2] text-[#52627b]"}`}>
+                  {comercio.nombre}
+                </button>
+              ))}
+            </div>
+          </section>
+          {/* Lista detallada oculta: el mapa es la vista principal */}
+          <section className="hidden">
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-bold sm:text-base">Puntos de venta</h2>
