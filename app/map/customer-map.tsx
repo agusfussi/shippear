@@ -4,16 +4,7 @@ import "leaflet/dist/leaflet.css"
 
 import Link from "next/link"
 import L from "leaflet"
-import {
-  ArrowLeft,
-  ArrowUpRight,
-  Filter,
-  MapPin,
-  RotateCcw,
-  Search,
-  Sparkles,
-  UserRound,
-} from "lucide-react"
+import { ArrowLeft, ArrowUpRight, MapPin, RotateCcw, Search } from "lucide-react"
 import { Marker, MapContainer, Popup, TileLayer, useMap } from "react-leaflet"
 import { useEffect, useMemo, useState } from "react"
 import { api } from "../../lib/client-api"
@@ -22,24 +13,13 @@ import type { MapStore } from "../../types/api"
 type CategoriaValor = "premium" | "estandar" | "basico"
 type FormatoTipo = "almacen" | "autoservicio" | "kiosco" | "despensa" | "cafeteria" | "otro"
 type NseNivel = "bajo" | "medio" | "alto"
-type TileStyle = "voyager" | "positron"
 
 const ROSARIO_CENTER: [number, number] = [-32.9468, -60.6393]
 
-const TILE_URLS: Record<TileStyle, { url: string; label: string; attribution: string }> = {
-  voyager: {
-    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-    label: "CartoDB Voyager",
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-  },
-  positron: {
-    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-    label: "CartoDB Positron",
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-  },
-}
+// Mapa 100% gratuito siempre (CartoDB Voyager sobre OpenStreetMap, sin API key, sin tarjeta)
+const FREE_MAP_TILES = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+const FREE_MAP_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
 
 const CATEGORIA_META: Record<
   CategoriaValor,
@@ -68,7 +48,10 @@ const CATEGORIA_META: Record<
   },
 }
 
-const FORMATO_META: Record<FormatoTipo, { label: string; short: string; borderRadius: string; svgPath: string }> = {
+const FORMATO_META: Record<
+  FormatoTipo,
+  { label: string; short: string; borderRadius: string; svgPath: string }
+> = {
   autoservicio: {
     label: "Autoservicio",
     short: "AUTO",
@@ -140,10 +123,10 @@ function getFormatoMeta(fmt?: string | null) {
 function buildComercioIcon(categoria?: string | null, formato?: string | null, isSelected?: boolean) {
   const cat = getCategoriaMeta(categoria)
   const fmt = getFormatoMeta(formato)
-  const size = isSelected ? 40 : 32
+  const size = isSelected ? 38 : 32
   const ring = isSelected
-    ? `box-shadow: 0 0 0 6px ${cat.color}38, 0 8px 18px rgba(11,31,58,0.28); transform: scale(1.08);`
-    : `box-shadow: 0 4px 12px rgba(11,31,58,0.22);`
+    ? `box-shadow: 0 0 0 5px ${cat.color}38, 0 6px 16px rgba(11,31,58,0.28); transform: scale(1.06);`
+    : `box-shadow: 0 3px 10px rgba(11,31,58,0.2);`
 
   const html = `
     <div style="position:relative; display:flex; flex-direction:column; align-items:center;">
@@ -160,8 +143,8 @@ function buildComercioIcon(categoria?: string | null, formato?: string | null, i
         transition:all 0.2s ease;
         ${ring}
       ">
-        <svg xmlns="http://www.w3.org/2000/svg" width="${isSelected ? 19 : 15}" height="${
-    isSelected ? 19 : 15
+        <svg xmlns="http://www.w3.org/2000/svg" width="${isSelected ? 18 : 15}" height="${
+    isSelected ? 18 : 15
   }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           ${fmt.svgPath}
         </svg>
@@ -185,17 +168,18 @@ function buildComercioIcon(categoria?: string | null, formato?: string | null, i
   return L.divIcon({
     className: "custom-pin-icon",
     html,
-    iconSize: [size + 14, size + 20],
-    iconAnchor: [(size + 14) / 2, (size + 20) / 2],
+    iconSize: [size + 14, size + 18],
+    iconAnchor: [(size + 14) / 2, (size + 18) / 2],
     popupAnchor: [0, -(size / 2)],
   })
 }
 
 function Recenter({ position }: { position: [number, number] }) {
+  const [lat, lng] = position
   const map = useMap()
   useEffect(() => {
-    map.flyTo(position, 14, { duration: 0.6 })
-  }, [map, position])
+    map.flyTo([lat, lng], 14, { duration: 0.6 })
+  }, [map, lat, lng])
   return null
 }
 
@@ -206,7 +190,6 @@ export default function CustomerMapPage({ embedded = false }: { embedded?: boole
   const [catFilter, setCatFilter] = useState<CategoriaValor | "todas">("todas")
   const [formatoFilter, setFormatoFilter] = useState<FormatoTipo | "todos">("todos")
   const [nseFilter, setNseFilter] = useState<NseNivel | "todos">("todos")
-  const [tileStyle, setTileStyle] = useState<TileStyle>("voyager")
   const [error, setError] = useState("")
   const [loaded, setLoaded] = useState(false)
 
@@ -297,62 +280,45 @@ export default function CustomerMapPage({ embedded = false }: { embedded?: boole
   return (
     <main className={embedded ? "text-[#17243a]" : "min-h-[100dvh] bg-[#f5f8fc] text-[#17243a]"}>
       {!embedded && (
-        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-[#e6ebf2] bg-white/95 px-3 backdrop-blur sm:h-[72px] sm:px-8">
-          <div className="flex min-w-0 items-center gap-2.5">
+        <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-2 border-b border-[#e6ebf2] bg-white/95 px-3 backdrop-blur sm:h-16 sm:px-6">
+          <div className="flex min-w-0 items-center gap-2">
             <Link
               href="/"
-              className="grid size-8 shrink-0 place-items-center rounded-lg border border-[#dce4ef] text-[#52627b] hover:bg-[#f1f5fa]"
-              aria-label="Volver a nueva visita"
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-[#dce4ef] px-2.5 text-xs font-semibold text-[#17243a] hover:bg-[#f1f5fa]"
             >
-              <ArrowLeft size={16} />
+              <ArrowLeft size={15} />
+              <span>Volver a visitas</span>
             </Link>
-            <div className="min-w-0">
-              <p className="truncate text-[10px] font-medium text-[#718096] sm:text-xs">
-                Shippe.AR · Inteligencia Geográfica
-              </p>
-              <h1 className="truncate text-sm font-bold sm:text-[19px]">
-                Mapa de comercios y categorías
-              </h1>
-            </div>
+            <h1 className="truncate text-sm font-bold sm:text-base">Mapa de comercios</h1>
           </div>
 
-          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
-            <Link
-              href="/"
-              className="flex items-center gap-1 rounded-lg bg-[#2166f3] px-2.5 py-1.5 text-[11px] font-bold text-white transition hover:bg-[#1657da] sm:px-3 sm:py-2 sm:text-xs"
-            >
-              <Sparkles size={13} />
-              <span>Nueva visita</span>
-            </Link>
-            <Link
-              href="/settings"
-              className="flex items-center gap-1.5 rounded-lg border border-[#dce4ef] px-2.5 py-1.5 text-[11px] font-semibold text-[#52627b] hover:bg-[#f5f8fc] sm:px-3 sm:py-2 sm:text-xs"
-            >
-              <UserRound size={13} />
-              <span className="hidden sm:inline">Cuenta</span>
-            </Link>
-          </div>
+          <Link
+            href="/settings"
+            className="shrink-0 rounded-lg border border-[#dce4ef] px-2.5 py-1.5 text-xs font-semibold text-[#52627b] hover:bg-[#f5f8fc]"
+          >
+            Cuenta
+          </Link>
         </header>
       )}
 
       {error && (
         <p
           role="alert"
-          className="mx-auto mt-3 max-w-[1320px] rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-700 sm:text-sm"
+          className="mx-auto mt-3 max-w-[1320px] rounded-xl border border-red-200 bg-red-50 p-3.5 text-xs font-semibold text-red-700 sm:text-sm"
         >
           {error}
         </p>
       )}
 
-      <div className={embedded ? "space-y-4" : "mx-auto max-w-[1320px] space-y-4 p-3 sm:space-y-5 sm:p-6"}>
-        {/* Barra superior de filtros por Categoría, Formato, NSE y Estilo CartoDB */}
-        <section className="rounded-2xl border border-[#dce4ef] bg-white p-3.5 shadow-[0_2px_12px_rgba(31,56,88,.04)] sm:p-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+      <div className={embedded ? "space-y-3 sm:space-y-4" : "mx-auto max-w-[1320px] space-y-3 p-2.5 sm:space-y-4 sm:p-5"}>
+        {/* Barra de filtros compacta y 100% responsive */}
+        <section className="rounded-2xl border border-[#dce4ef] bg-white p-3 shadow-[0_2px_12px_rgba(31,56,88,.04)] sm:p-4">
+          <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => setCatFilter("todas")}
-                className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition ${
+                className={`rounded-xl border px-2.5 py-1 text-xs font-bold transition ${
                   catFilter === "todas"
                     ? "border-[#0b1f3a] bg-[#0b1f3a] text-white"
                     : "border-[#dce4ef] bg-[#f8fafd] text-[#52627b] hover:bg-[#eef3fb]"
@@ -369,15 +335,15 @@ export default function CustomerMapPage({ embedded = false }: { embedded?: boole
                     key={catKey}
                     type="button"
                     onClick={() => setCatFilter(active ? "todas" : catKey)}
-                    className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-bold transition ${
+                    className={`flex items-center gap-1 rounded-xl border px-2.5 py-1 text-xs font-bold transition ${
                       active
                         ? `${meta.bg} ${meta.text} ${meta.border} ring-2 ring-[#2166f3]/20`
                         : "border-[#e6ebf2] bg-white text-[#17243a] hover:bg-[#f8fafd]"
                     }`}
                   >
-                    <span className="size-2.5 shrink-0 rounded-full" style={{ background: meta.color }} />
+                    <span className="size-2 shrink-0 rounded-full" style={{ background: meta.color }} />
                     <span className="capitalize">{catKey}</span>
-                    <span className="rounded-md bg-black/5 px-1.5 py-0.5 text-[10px]">
+                    <span className="rounded bg-black/5 px-1 text-[10px]">
                       {countsByCategoria[catKey]}
                     </span>
                   </button>
@@ -385,19 +351,19 @@ export default function CustomerMapPage({ embedded = false }: { embedded?: boole
               })}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
               <select
                 aria-label="Filtrar por formato"
                 value={formatoFilter}
                 onChange={(e) => setFormatoFilter(e.target.value as FormatoTipo | "todos")}
-                className="h-9 rounded-xl border border-[#dce4ef] bg-[#f8fafd] px-2.5 text-xs font-semibold text-[#17243a] outline-none focus:border-[#2166f3]"
+                className="h-9 min-w-0 rounded-xl border border-[#dce4ef] bg-[#f8fafd] px-2 text-xs font-semibold text-[#17243a] outline-none focus:border-[#2166f3]"
               >
                 <option value="todos">Formato: Todos</option>
-                <option value="autoservicio">Autoservicio (🛒)</option>
-                <option value="almacen">Almacén (🏪)</option>
-                <option value="despensa">Despensa (📦)</option>
-                <option value="kiosco">Kiosco (⚡)</option>
-                <option value="cafeteria">Cafetería (☕)</option>
+                <option value="autoservicio">Autoservicio</option>
+                <option value="almacen">Almacén</option>
+                <option value="despensa">Despensa</option>
+                <option value="kiosco">Kiosco</option>
+                <option value="cafeteria">Cafetería</option>
                 <option value="otro">Otro</option>
               </select>
 
@@ -405,7 +371,7 @@ export default function CustomerMapPage({ embedded = false }: { embedded?: boole
                 aria-label="Filtrar por NSE"
                 value={nseFilter}
                 onChange={(e) => setNseFilter(e.target.value as NseNivel | "todos")}
-                className="h-9 rounded-xl border border-[#dce4ef] bg-[#f8fafd] px-2.5 text-xs font-semibold text-[#17243a] outline-none focus:border-[#2166f3]"
+                className="h-9 min-w-0 rounded-xl border border-[#dce4ef] bg-[#f8fafd] px-2 text-xs font-semibold text-[#17243a] outline-none focus:border-[#2166f3]"
               >
                 <option value="todos">NSE: Todos</option>
                 <option value="alto">NSE Alto</option>
@@ -413,32 +379,11 @@ export default function CustomerMapPage({ embedded = false }: { embedded?: boole
                 <option value="bajo">NSE Bajo</option>
               </select>
 
-              <div className="flex items-center rounded-xl border border-[#dce4ef] bg-[#f8fafd] p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setTileStyle("voyager")}
-                  className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition ${
-                    tileStyle === "voyager" ? "bg-[#2166f3] text-white shadow-xs" : "text-[#52627b]"
-                  }`}
-                >
-                  Voyager
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTileStyle("positron")}
-                  className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition ${
-                    tileStyle === "positron" ? "bg-[#2166f3] text-white shadow-xs" : "text-[#52627b]"
-                  }`}
-                >
-                  Positron
-                </button>
-              </div>
-
               {hayFiltrosActivos && (
                 <button
                   type="button"
                   onClick={limpiarFiltros}
-                  className="flex items-center gap-1 rounded-xl border border-[#dce4ef] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#2166f3] hover:bg-[#e9f0ff]"
+                  className="col-span-2 flex items-center justify-center gap-1 rounded-xl border border-[#dce4ef] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#2166f3] hover:bg-[#e9f0ff] sm:col-span-1"
                 >
                   <RotateCcw size={12} /> Limpiar
                 </button>
@@ -447,32 +392,29 @@ export default function CustomerMapPage({ embedded = false }: { embedded?: boole
           </div>
         </section>
 
-        {/* Grilla: Lista + Mapa CartoDB Voyager/Positron + Vista Previa Última Ficha */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[300px_1fr_350px]">
-          {/* Columna 1: Puntos de venta */}
-          <section className="rounded-2xl border border-[#dce4ef] bg-white p-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold sm:text-base">Puntos de venta</h2>
-              <Filter size={15} className="text-[#8b98aa]" />
+        {/* Grilla adaptable: Lista + Mapa + Vista Previa */}
+        <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[280px_1fr] xl:grid-cols-[280px_1fr_340px]">
+          {/* Columna 1: Listado de puntos de venta */}
+          <section className="rounded-2xl border border-[#dce4ef] bg-white p-3.5 sm:p-4">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-sm font-bold">Puntos de venta</h2>
+              <span className="text-[11px] font-medium text-slate-500">
+                {loaded ? `${filtered.length} de ${stores.length}` : "Cargando..."}
+              </span>
             </div>
-            <p className="mt-1 text-xs text-slate-500">
-              {loaded
-                ? `${stores.length} comercios · ${stores.filter((s) => s.es_demo).length} DEMO`
-                : "Cargando..."}
-            </p>
 
-            <label className="relative my-3 block">
-              <Search className="absolute left-3 top-2.5 text-[#8b98aa]" size={15} />
+            <label className="relative my-2.5 block">
+              <Search className="absolute left-3 top-2.5 text-[#8b98aa]" size={14} />
               <input
                 aria-label="Buscar comercio"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar comercio"
-                className="h-9 w-full rounded-xl border border-[#dce4ef] pl-9 pr-3 text-xs outline-none focus:border-[#2166f3]"
+                placeholder="Buscar por nombre o dirección..."
+                className="h-9 w-full rounded-xl border border-[#dce4ef] pl-8 pr-3 text-xs outline-none focus:border-[#2166f3]"
               />
             </label>
 
-            <div className="max-h-[380px] space-y-2 overflow-auto pr-1 lg:max-h-[480px]">
+            <div className="max-h-52 space-y-2 overflow-auto pr-1 lg:max-h-[460px]">
               {filtered.map((s) => {
                 const catVal = s.categoria || s.ficha?.categoria.valor || null
                 const catMeta = getCategoriaMeta(catVal)
@@ -482,19 +424,19 @@ export default function CustomerMapPage({ embedded = false }: { embedded?: boole
                     key={s.id}
                     type="button"
                     onClick={() => setSelectedId(s.id)}
-                    className={`w-full rounded-xl border p-3 text-left transition ${
+                    className={`w-full rounded-xl border p-2.5 text-left transition ${
                       isSelected
                         ? "border-[#2166f3] bg-[#e9f0ff]"
                         : "border-slate-200 hover:bg-[#f8fafd]"
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex min-w-0 items-center gap-2">
+                    <div className="flex items-start justify-between gap-1.5">
+                      <div className="flex min-w-0 items-center gap-1.5">
                         <span
                           className="size-2.5 shrink-0 rounded-full"
                           style={{ background: catMeta.color }}
                         />
-                        <b className="truncate text-xs sm:text-sm">{s.nombre}</b>
+                        <b className="truncate text-xs">{s.nombre}</b>
                       </div>
                       {catVal && (
                         <span
@@ -504,10 +446,9 @@ export default function CustomerMapPage({ embedded = false }: { embedded?: boole
                         </span>
                       )}
                     </div>
-                    <span className="mt-1 block text-xs text-slate-500">
+                    <span className="mt-1 block truncate text-[11px] text-slate-500">
                       {s.formato || "Sin ficha"} · NSE {s.nse || "sin estimar"}
-                      {s.categoria ? ` · ${s.categoria}` : ""}
-                      {s.lat === null ? " · Sin ubicación" : ""}
+                      {s.lat === null ? " · Sin GPS" : ""}
                     </span>
                   </button>
                 )
@@ -515,29 +456,23 @@ export default function CustomerMapPage({ embedded = false }: { embedded?: boole
             </div>
           </section>
 
-          {/* Columna 2: Mapa Leaflet con CartoDB Voyager / Positron */}
+          {/* Columna 2: Mapa Gratuito Leaflet + CartoDB Voyager */}
           <section className="overflow-hidden rounded-2xl border border-[#dce4ef] bg-white">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#e6ebf2] p-4">
-              <div>
-                <h2 className="text-sm font-bold sm:text-base">
-                  Cobertura comercial ({TILE_URLS[tileStyle].label})
-                </h2>
-                <p className="text-xs text-slate-500">
-                  Color por categoría (`premium | estandar | basico`) · Ícono por `formato`.
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#e6ebf2] px-3.5 py-3 sm:px-4">
+              <div className="min-w-0">
+                <h2 className="truncate text-sm font-bold">Cobertura comercial</h2>
+                <p className="truncate text-[11px] text-slate-500">
+                  Color por categoría · Ícono por formato
                 </p>
               </div>
               <span className="flex items-center gap-1 rounded-full bg-[#f1f5fa] px-2.5 py-1 text-[11px] font-semibold text-[#52627b]">
-                <MapPin size={12} className="text-[#2166f3]" /> Rosario / Región
+                <MapPin size={12} className="text-[#2166f3]" /> Rosario
               </span>
             </div>
 
-            <div className="h-[360px] sm:h-[500px]">
+            <div className="h-[300px] sm:h-[420px] lg:h-[500px]">
               <MapContainer center={position} zoom={13} className="z-0 h-full w-full">
-                <TileLayer
-                  key={tileStyle}
-                  attribution={TILE_URLS[tileStyle].attribution}
-                  url={TILE_URLS[tileStyle].url}
-                />
+                <TileLayer attribution={FREE_MAP_ATTRIBUTION} url={FREE_MAP_TILES} />
                 <Recenter position={position} />
                 {points.map((s) => {
                   const catVal = s.categoria || s.ficha?.categoria.valor || null
@@ -551,25 +486,21 @@ export default function CustomerMapPage({ embedded = false }: { embedded?: boole
                       eventHandlers={{ click: () => setSelectedId(s.id) }}
                     >
                       <Popup>
-                        <div className="min-w-[200px] text-xs text-[#17243a]">
+                        <div className="min-w-[180px] text-xs text-[#17243a]">
                           <b className="block text-sm">{s.nombre}</b>
                           <p className="mt-0.5 text-slate-600">
                             {s.formato || "Sin ficha"} · NSE {s.nse || "sin estimar"}
                           </p>
-                          {s.es_demo && (
-                            <p className="mt-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
-                              Datos ficticios DEMO
-                            </p>
-                          )}
                           {s.ficha && (
-                            <div className="mt-2 space-y-1 border-t border-slate-200 pt-1.5">
-                              <p className="font-semibold">Categoría: {s.categoria || s.ficha.categoria.valor}</p>
+                            <div className="mt-1.5 space-y-1 border-t border-slate-200 pt-1.5">
+                              <p className="font-semibold">
+                                Categoría: {s.categoria || s.ficha.categoria.valor}
+                              </p>
                               <ul className="list-inside list-disc text-[11px]">
                                 {s.ficha.ofrecer_primero.map((p) => (
                                   <li key={p.producto}>{p.producto}</li>
                                 ))}
                               </ul>
-                              <p className="text-[10px] text-slate-500">{s.ficha.limitaciones}</p>
                             </div>
                           )}
                         </div>
@@ -582,7 +513,7 @@ export default function CustomerMapPage({ embedded = false }: { embedded?: boole
           </section>
 
           {/* Columna 3: Vista previa de la Última Ficha */}
-          <section className="flex flex-col justify-between rounded-2xl border border-[#dce4ef] bg-white p-4">
+          <section className="flex flex-col justify-between rounded-2xl border border-[#dce4ef] bg-white p-3.5 sm:p-4 lg:col-span-2 xl:col-span-1">
             {selected ? (
               <>
                 <div className="space-y-3">
@@ -597,7 +528,7 @@ export default function CustomerMapPage({ embedded = false }: { embedded?: boole
                         </span>
                       )}
                     </div>
-                    <h3 className="mt-1.5 text-base font-bold">{selected.nombre}</h3>
+                    <h3 className="mt-1 text-base font-bold">{selected.nombre}</h3>
                     {selected.direccion && (
                       <p className="text-xs text-[#718096]">{selected.direccion}</p>
                     )}
@@ -619,12 +550,17 @@ export default function CustomerMapPage({ embedded = false }: { embedded?: boole
                           {selected.categoria || selected.ficha?.categoria.valor}
                         </span>
                       )}
+                      {selected.ficha && (
+                        <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
+                          Confianza {Math.round(selected.ficha.confianza * 100)}%
+                        </span>
+                      )}
                     </div>
                   </div>
 
                   {selected.ficha ? (
                     <>
-                      <div className="rounded-xl border border-[#e4eaf2] bg-[#f8fafd] p-3 text-xs">
+                      <div className="rounded-xl border border-[#e4eaf2] bg-[#f8fafd] p-2.5 text-xs">
                         <p className="text-[10px] font-bold uppercase text-[#718096]">
                           Motivo de clasificación
                         </p>
@@ -633,11 +569,28 @@ export default function CustomerMapPage({ embedded = false }: { embedded?: boole
                         </p>
                       </div>
 
+                      <div className="grid grid-cols-3 gap-1.5 text-center text-[11px]">
+                        <div className="rounded-lg border border-[#e4eaf2] bg-[#fbfcfe] p-1.5">
+                          <span className="block text-[9px] uppercase text-[#718096]">Tamaño / Cajas</span>
+                          <b className="text-[#17243a]">
+                            {selected.ficha.formato.tamano} · {selected.ficha.formato.cajas ?? "—"}
+                          </b>
+                        </div>
+                        <div className="rounded-lg border border-[#e4eaf2] bg-[#fbfcfe] p-1.5">
+                          <span className="block text-[9px] uppercase text-[#718096]">m² estim.</span>
+                          <b className="text-[#17243a]">{selected.ficha.formato.m2_estimados ?? "—"}</b>
+                        </div>
+                        <div className="rounded-lg border border-[#e4eaf2] bg-[#fbfcfe] p-1.5">
+                          <span className="block text-[9px] uppercase text-[#718096]">Góndolas</span>
+                          <b className="text-[#17243a]">{selected.ficha.formato.gondolas ?? "—"}</b>
+                        </div>
+                      </div>
+
                       <div>
                         <p className="text-[10px] font-bold uppercase text-[#718096]">
                           Señales de NSE ({selected.ficha.nse.senales.length})
                         </p>
-                        <div className="mt-1.5 flex flex-wrap gap-1">
+                        <div className="mt-1 flex flex-wrap gap-1">
                           {selected.ficha.nse.senales.map((senal, idx) => (
                             <span
                               key={idx}
@@ -668,30 +621,44 @@ export default function CustomerMapPage({ embedded = false }: { embedded?: boole
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 gap-2 text-[11px]">
-                        <div className="rounded-xl border border-[#fde68a] bg-[#fffbeb] p-2.5">
-                          <span className="font-bold text-[#b45309]">Faltantes respaldados: </span>
+                      <div className="grid grid-cols-1 gap-1.5 text-[11px]">
+                        <div className="rounded-xl border border-[#d1fae5] bg-[#ecfdf5]/60 p-2">
+                          <span className="font-bold text-[#047857]">Tiene en góndola: </span>
+                          <span className="text-[#065f46]">
+                            {selected.ficha.surtido.tiene.join(" · ") || "Sin presencia confirmada"}
+                          </span>
+                        </div>
+                        <div className="rounded-xl border border-[#fde68a] bg-[#fffbeb] p-2">
+                          <span className="font-bold text-[#b45309]">Faltantes: </span>
                           <span className="text-[#92400e]">
                             {selected.ficha.surtido.le_falta.join(" · ") || "A confirmar en local"}
                           </span>
                         </div>
-                        <div className="rounded-xl bg-amber-50 p-2.5 text-amber-900">
-                          <span className="font-bold">Limitaciones: </span>
-                          {selected.ficha.limitaciones}
+                        <div className="rounded-xl border border-[#fecdd3] bg-[#fff1f2] p-2">
+                          <span className="font-bold text-[#be123c]">Competencia: </span>
+                          <span className="text-[#9f1239]">
+                            Marcas: {selected.ficha.competencia.marcas ?? "—"} · Share:{" "}
+                            {selected.ficha.competencia.share_frentes_pct !== null
+                              ? `${selected.ficha.competencia.share_frentes_pct}%`
+                              : "—"}
+                            {selected.ficha.competencia.promos.length > 0
+                              ? ` · Promos: ${selected.ficha.competencia.promos.join(", ")}`
+                              : ""}
+                          </span>
                         </div>
                       </div>
                     </>
                   ) : (
-                    <div className="rounded-xl border border-[#e4eaf2] bg-[#f8fafd] p-4 text-xs text-[#52627b]">
+                    <div className="rounded-xl border border-[#e4eaf2] bg-[#f8fafd] p-3.5 text-xs text-[#52627b]">
                       <p className="font-semibold text-[#17243a]">Datos básicos de mapa</p>
                       <p className="mt-1 leading-5">
-                        Los argumentos detallados y la ficha completa se habilitan al analizar una visita propia o desde la vista de administración (§5 RLS).
+                        La ficha completa se habilita al analizar una visita propia o desde la vista de administración.
                       </p>
                     </div>
                   )}
                 </div>
 
-                <div className="mt-4 border-t border-[#edf1f6] pt-3">
+                <div className="mt-3 border-t border-[#edf1f6] pt-2.5">
                   <Link
                     href={`/?comercio=${selected.id}`}
                     className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#2166f3] py-2.5 text-xs font-bold text-white transition hover:bg-[#1657da]"

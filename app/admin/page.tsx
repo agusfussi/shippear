@@ -313,9 +313,9 @@ export default function AdminPage() {
         </nav>
       </header>
 
-      <div className="mx-auto max-w-[1360px] px-3 py-4 sm:px-6 sm:py-6">
-        {/* Section Switcher */}
-        <nav className="mb-4 flex flex-wrap items-center justify-between gap-2 sm:mb-6">
+      <div className="mx-auto max-w-[1360px] px-3 pt-4 pb-20 sm:px-6 sm:py-6">
+        {/* Section Switcher (Desktop) */}
+        <nav className="mb-4 hidden items-center justify-between gap-2 sm:mb-6 sm:flex">
           <div className="flex flex-wrap gap-1.5 sm:gap-2">
             {navItems.map(({ key, label, icon: Icon }) => {
               const active = section === key
@@ -360,24 +360,6 @@ export default function AdminPage() {
         {/* SECTION: MAP */}
         {section === "map" && (
           <section className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[#dce4ef] bg-white p-3.5 sm:px-5 sm:py-4">
-              <div>
-                <h2 className="text-base font-bold sm:text-lg">
-                  Mapa de Cobertura y Categorización de PDVs
-                </h2>
-                <p className="text-xs text-[#718096]">
-                  Pines coloreados por categoría de cliente (Premium, Estándar, Básico) y forma según formato comercial. Hacé clic en un local para inspeccionar su última ficha.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSection("analytics")}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[#e9f0ff] px-3 py-1.5 text-xs font-bold text-[#2166f3] hover:bg-[#dbe7ff]"
-              >
-                <Sparkles size={14} />
-                Ver insights agénticos
-              </button>
-            </div>
             <CoverageMap embedded />
           </section>
         )}
@@ -820,6 +802,27 @@ export default function AdminPage() {
           </section>
         )}
       </div>
+
+      {/* Mobile Bottom Nav */}
+      <nav className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-[#dce4ef] bg-white/95 px-1.5 py-2 backdrop-blur sm:hidden">
+        {navItems.map(({ key, label, icon: Icon }) => {
+          const active = section === key
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setSection(key)}
+              className={
+                "flex flex-col items-center gap-0.5 rounded-lg px-2 py-1 text-[10px] font-bold transition " +
+                (active ? "text-[#2166f3]" : "text-[#5b6b82]")
+              }
+            >
+              <Icon size={16} />
+              <span>{label}</span>
+            </button>
+          )
+        })}
+      </nav>
     </main>
   )
 }

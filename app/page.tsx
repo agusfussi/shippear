@@ -98,6 +98,9 @@ export default function SellerPage() {
   const [activeSlot, setActiveSlot] = useState<FotoTipo>("gondola")
 
   const [ficha, setFicha] = useState<Ficha | null>(null)
+  const [fichaMeta, setFichaMeta] = useState<{ modelo?: string; prompt_version?: string } | null>(
+    null
+  )
   const [pregunta, setPregunta] = useState("")
   const [chat, setChat] = useState<{ rol: string; contenido: string }[]>([])
   const [error, setError] = useState("")
@@ -117,8 +120,12 @@ export default function SellerPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const chatDraft = useRef<{ texto: string; requestId: string } | null>(null)
 
-  const files = useMemo(
-    () => [...filesBySlot.fachada, ...filesBySlot.gondola, ...filesBySlot.extra],
+  const filesWithSlot = useMemo(
+    () => [
+      ...filesBySlot.fachada.map((file) => ({ file, tipo: "fachada" as FotoTipo })),
+      ...filesBySlot.gondola.map((file) => ({ file, tipo: "gondola" as FotoTipo })),
+      ...filesBySlot.extra.map((file) => ({ file, tipo: "extra" as FotoTipo })),
+    ],
     [filesBySlot]
   )
 
@@ -175,6 +182,7 @@ export default function SellerPage() {
     if (fileRef.current) fileRef.current.value = ""
     setDraftId("")
     setFicha(null)
+    setFichaMeta(null)
     setFilesBySlot({ fachada: [], gondola: [], extra: [] })
     setNotas("")
     setChat([])
@@ -206,7 +214,7 @@ export default function SellerPage() {
   }
 
   async function analizar() {
-    if (!comercioId || (!files.length && !draft.current.registradas)) {
+    if (!comercioId || (!filesWithSlot.length && !draft.current.registradas)) {
       setError("Elegí un comercio y adjuntá al menos una foto")
       return
     }
@@ -224,7 +232,7 @@ export default function SellerPage() {
         setDraftId(visit.visita_id)
       }
       if (!draft.current.registradas) {
-        draft.current.fotos ||= await subirFotos(comercioId, draft.current.id, files)
+        draft.current.fotos ||= await subirFotos(comercioId, draft.current.id, filesWithSlot)
         await post("/api/visitas/" + draft.current.id + "/fotos", {
           fotos: draft.current.fotos,
         })
@@ -235,7 +243,19 @@ export default function SellerPage() {
         { request_id: draft.current.requestId }
       )
       setFicha(result.ficha)
-      setVisitas(await api<VisitSummary[]>("/api/visitas"))
+      const [updatedHistory, storedFicha] = await Promise.all([
+        api<VisitSummary[]>("/api/visitas"),
+        api<{ data: Ficha; modelo?: string; prompt_version?: string } | null>(
+          "/api/visitas/" + draft.current.id + "/ficha"
+        ).catch(() => null),
+      ])
+      setVisitas(updatedHistory)
+      if (storedFicha) {
+        setFichaMeta({
+          modelo: storedFicha.modelo,
+          prompt_version: storedFicha.prompt_version,
+        })
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo analizar")
     } finally {
@@ -249,7 +269,9 @@ export default function SellerPage() {
     setAviso("")
     try {
       const [stored, messages] = await Promise.all([
-        api<{ data: Ficha } | null>("/api/visitas/" + v.id + "/ficha"),
+        api<{ data: Ficha; modelo?: string; prompt_version?: string } | null>(
+          "/api/visitas/" + v.id + "/ficha"
+        ),
         api<{ rol: string; contenido: string }[]>("/api/visitas/" + v.id + "/chat"),
       ])
       draft.current = { id: v.id, requestId: crypto.randomUUID() }
@@ -258,6 +280,9 @@ export default function SellerPage() {
       setNotas(v.notas || "")
       setFilesBySlot({ fachada: [], gondola: [], extra: [] })
       setFicha(stored?.data || null)
+      setFichaMeta(
+        stored ? { modelo: stored.modelo, prompt_version: stored.prompt_version } : null
+      )
       setChat(messages)
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo abrir")
@@ -366,16 +391,16 @@ export default function SellerPage() {
           </span>
         </Link>
 
-        <nav className="flex flex-wrap items-center gap-2 text-xs font-semibold sm:gap-4 sm:text-sm">
-          <Link href="/map" className="rounded-lg px-2 py-1 text-[#52627b] hover:bg-[#f1f5fa]">
+        <nav className="flex items-center gap-1.5 text-xs font-semibold sm:gap-3 sm:text-sm">
+          <Link href="/map" className="hidden rounded-lg px-2 py-1 text-[#52627b] hover:bg-[#f1f5fa] sm:inline-block">
             Mapa
           </Link>
           {user.role === "admin" && (
             <Link href="/admin" className="rounded-lg px-2 py-1 text-[#2166f3] hover:bg-[#e9f0ff]">
-              Administración
+              Admin
             </Link>
           )}
-          <Link href="/settings" className="rounded-lg px-2 py-1 text-[#52627b] hover:bg-[#f1f5fa]">
+          <Link href="/settings" className="hidden rounded-lg px-2 py-1 text-[#52627b] hover:bg-[#f1f5fa] sm:inline-block">
             Cuenta
           </Link>
           <button
@@ -502,7 +527,7 @@ export default function SellerPage() {
             disabled={busy}
             value={comercioId}
             onChange={(e) => reset(e.target.value)}
-            className="min-w-0 flex-1 rounded-lg border border-[#e6ebf2] bg-[#f8fafd] px-2.5 py-2 text-xs font-semibold text-[#17243a] outline-none focus:border-[#2166f3] sm:text-sm"
+            className="w-full rounded-lg border border-[#e6ebf2] bg-[#f8fafd] px-2.5 py-2 text-xs font-semibold text-[#17243a] outline-none focus:border-[#2166f3] sm:min-w-0 sm:w-auto sm:flex-1 sm:text-sm"
           >
             <option value="" disabled>
               Elegí un comercio
@@ -601,22 +626,12 @@ export default function SellerPage() {
               className="mt-4 min-h-28 w-full rounded-xl border border-[#dce4ef] bg-[#fbfcfe] p-3 text-xs outline-none focus:border-[#2166f3] sm:p-4 sm:text-sm"
             />
 
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2.5">
-              <button
-                type="button"
-                disabled={busy || !!draftId}
-                onClick={() => openSlotPicker("gondola")}
-                className="flex items-center gap-2 rounded-lg bg-[#e9f0ff] px-3.5 py-2 text-xs font-bold text-[#2166f3] hover:bg-[#dce8ff] disabled:opacity-50 sm:px-4 sm:py-2.5 sm:text-sm"
-              >
-                <Camera size={17} />
-                Adjuntar fotos
-              </button>
-
+            <div className="mt-3 flex items-center justify-end">
               <button
                 type="button"
                 disabled={busy || !comercioId}
                 onClick={analizar}
-                className="flex items-center gap-2 rounded-lg bg-[#2166f3] px-4 py-2 text-xs font-bold text-white shadow-[0_5px_12px_rgba(33,102,243,.25)] hover:bg-[#1657da] disabled:opacity-50 sm:py-2.5 sm:text-sm"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#2166f3] px-4 py-2.5 text-xs font-bold text-white shadow-[0_5px_12px_rgba(33,102,243,.25)] hover:bg-[#1657da] disabled:opacity-50 sm:w-auto sm:text-sm"
               >
                 {busy ? "Procesando..." : draftId ? "Reintentar análisis" : "Analizar visita"}
                 <Send size={15} />
@@ -678,6 +693,9 @@ export default function SellerPage() {
                   <h2 className="text-base font-bold sm:text-xl">Ficha del local</h2>
                   <p className="text-xs text-slate-500">
                     Confianza IA: {Math.round(ficha.confianza * 100)}% · Clasificación validada (§4)
+                    {fichaMeta?.modelo
+                      ? ` · ${fichaMeta.modelo}${fichaMeta.prompt_version ? ` (${fichaMeta.prompt_version})` : ""}`
+                      : ""}
                   </p>
                 </div>
               </div>
@@ -955,6 +973,13 @@ export default function SellerPage() {
           <Camera size={16} />
           <span className="mt-0.5">Nueva visita</span>
         </button>
+        <a
+          href="#historial"
+          className="flex flex-1 flex-col items-center justify-center py-1 text-[10px] font-bold text-[#52627b]"
+        >
+          <Store size={16} />
+          <span className="mt-0.5">Historial</span>
+        </a>
         <Link
           href="/map"
           className="flex flex-1 flex-col items-center justify-center py-1 text-[10px] font-bold text-[#52627b]"
