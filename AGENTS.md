@@ -74,7 +74,7 @@ AI_API_KEY=                  # solo servidor
 ## Antes de abrir un PR
 
 - [ ] `npm run build` pasa sin errores.
-- [ ] `npm run lint` pasa.
+- [ ] `npm run lint` pasa (cuando ESLint esté configurado; hoy el script existe pero falta la config).
 - [ ] Si tocaste el esquema: hay migración en `supabase/` y regeneraste `types/db.ts` (`supabase gen types typescript`).
 - [ ] Si tocaste la ficha o las rutas: actualizaste `docs/CONTRATO.md` y `types/`.
 - [ ] No hay claves, `.env` ni `console.log` con datos sensibles.
