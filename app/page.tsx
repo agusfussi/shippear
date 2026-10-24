@@ -120,12 +120,14 @@ export default function SellerPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const chatDraft = useRef<{ texto: string; requestId: string } | null>(null)
 
+  // Cada archivo viaja con el tipo de su slot: la IA necesita saber cual es la fachada.
   const filesWithSlot = useMemo(
-    () => [
-      ...filesBySlot.fachada.map((file) => ({ file, tipo: "fachada" as FotoTipo })),
-      ...filesBySlot.gondola.map((file) => ({ file, tipo: "gondola" as FotoTipo })),
-      ...filesBySlot.extra.map((file) => ({ file, tipo: "extra" as FotoTipo })),
-    ],
+    () =>
+      (["fachada", "gondola", "extra"] as FotoTipo[]).flatMap((tipo) =>
+        filesBySlot[tipo].map((file) => ({ file, tipo }))
+      ),
+    [filesBySlot]
+  )
     [filesBySlot]
   )
 
@@ -323,19 +325,20 @@ export default function SellerPage() {
     await enviarMensajeChat(pregunta)
   }
 
+  // Si no hay GPS no se inventan coordenadas: un punto falso ensucia el mapa.
   function capturarGps() {
-    if (typeof navigator !== "undefined" && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setLatInput(pos.coords.latitude.toFixed(5))
-          setLngInput(pos.coords.longitude.toFixed(5))
-        },
-        () => {
-          setLatInput("-32.9468")
-          setLngInput("-60.6393")
-        }
-      )
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setError("Este dispositivo no permite obtener la ubicación. Cargá las coordenadas a mano o dejalas vacías")
+      return
     }
+    setError("")
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLatInput(pos.coords.latitude.toFixed(5))
+        setLngInput(pos.coords.longitude.toFixed(5))
+      },
+      () => setError("No se pudo obtener la ubicación. Revisá el permiso de GPS o cargá las coordenadas a mano")
+    )
   }
 
   async function crearComercio(e: FormEvent<HTMLFormElement>) {
@@ -622,7 +625,7 @@ export default function SellerPage() {
               value={notas}
               onChange={(e) => setNotas(e.target.value)}
               maxLength={10000}
-              placeholder="Ej: autoservicio con dos cajas, mucho movimiento matutino. Adjunto fotos de fachada y góndolas..."
+              placeholder={"Respuestas del dueño (guía La Virginia):\n¿Cuántas cajas tenés? ¿Quién te repone? ¿Cuántos trabajan acá?\n¿Hacés delivery o vendés por apps? ¿Qué te pide la gente que no tenés? ¿Cuánto se lleva cada cliente?"}
               className="mt-4 min-h-28 w-full rounded-xl border border-[#dce4ef] bg-[#fbfcfe] p-3 text-xs outline-none focus:border-[#2166f3] sm:p-4 sm:text-sm"
             />
 

@@ -39,6 +39,8 @@ mensajes      (id, visita_id → visitas, rol: 'user'|'assistant', contenido, cr
 productos_lv  (id, nombre, categoria, presentacion, formatos_objetivo text[], nse_objetivo text[])
 ```
 
+- Catálogo oficial del grupo (63 productos de La Virginia, Alicante, Virgin Islands, Litoral, Chocolino, Tuy y Giacomo): migración `20261024180000_catalogo_oficial_lv.sql`, con `sku` = código del catálogo (`LAV-001`, `ALI-006`…). Fuente: `lib/ai/catalogo.ts`, que además aporta marca, subcategoría y detalles al prompt (se cruzan por `sku`). `formatos_objetivo`, `nse_objetivo` y `gama` son estimación del equipo. Los productos DEMO quedan activos porque fichas viejas los referencian, pero si hay productos oficiales la IA usa solo esos.
+
 - **Comercio ≠ visita.** Un comercio tiene muchas visitas; cada visita tiene sus fotos, su ficha y su chat. Eso nos da el "historial por comercio" del PLUS gratis.
 - `fichas.formato`, `fichas.nse` y `fichas.categoria` se duplican como columnas (además de `data`) para que el dashboard y el mapa filtren sin leer el JSON.
 - `modelo` + `prompt_version` = trazabilidad: sabemos qué versión del prompt generó cada ficha.
@@ -48,6 +50,7 @@ productos_lv  (id, nombre, categoria, presentacion, formatos_objetivo text[], ns
 **RLS (permisos)**
 - Vendedor: lee todos los comercios con `nombre, lat, lng, formato, nse` (mapa); lee/escribe sólo **sus** visitas, fotos y mensajes.
 - Admin: lee todo. El dashboard sólo lo ve admin (se chequea en el front **y** en la RLS/ruta).
+- Cuentas nuevas: se crean con `activo = false` (migración `20261024190000_perfiles_inactivos_por_defecto.sql`). No ven nada hasta que un admin las habilita desde el panel (Equipo).
 
 ## 4. Ficha del local: JSON que devuelve la IA (contrato Feli ↔ Tomi ↔ Agus)
 
@@ -76,6 +79,19 @@ productos_lv  (id, nombre, categoria, presentacion, formatos_objetivo text[], ns
 - Los tipos TypeScript de esta ficha viven en un solo archivo (`types/ficha.ts`) y todos lo importan.
 - Campos numéricos que no puedan observarse (`cajas`, `m2_estimados`, `gondolas`, `share_frentes_pct`, `marcas`) aceptan `null`; `tamano` admite `desconocido`. `limitaciones` es un campo obligatorio de texto para evitar presentar una estimación como certeza. `le_falta` sólo contiene ausencias respaldadas; los productos a confirmar pueden aparecer en `ofrecer_primero` con su argumento. Máximo tres ofertas. El NSE es una hipótesis comercial agregada, no información personal de los clientes.
 - Gemini se llama mediante el SDK oficial `@google/genai`, exclusivamente en servidor. La clave se configura en `GEMINI_API_KEY`; el modelo se elige con `GEMINI_MODEL`. Se registran `modelo` y `prompt_version`.
+
+**Cómo llamar a la IA desde las rutas (Feli → Tomi).** Todo vive en `lib/ai` (solo servidor, modelo Gemini) y no toca Supabase: la ruta baja las fotos y pasa los bytes. `lib/db/api.ts` usa `analizarConGemini(ctx)` y `conversarConGemini(ctx, ficha, mensajes)` de `lib/ai/gemini.ts`, que traducen el contexto de Supabase a estas funciones:
+
+```ts
+analizarFotos({ fotos, audios?, catalogo })        // → { ficha, modelo, promptVersion }  (lanza FichaInvalidaError si no valida tras 1 reintento)
+responderChat({ ficha, fotos?, historial?, mensaje, catalogo })
+  // mensaje: string | { mimeType, data }   (texto o nota de voz)
+  // → { respuesta, transcripcion? }        (transcripcion solo si fue audio: es lo que se guarda en mensajes.contenido)
+// fotos: { tipo: 'fachada'|'gondola'|'extra', mimeType, data: Buffer }[]   catalogo: filas de productos_lv
+```
+
+- Las notas de voz son opcionales y suman contexto; el audio no se guarda en Storage (si se quiere guardar, hay que sumarlo al §3).
+- Modelos: `GEMINI_MODEL` (recomendado `gemini-3.5-flash`, ~5 s por ficha; `gemini-3.8-flash` tardó >100 s por saturación) y opcional `GEMINI_MODEL_RESPALDO` (por defecto `gemini-3.1-flash-lite`). Si el principal falla por saturación o timeout se usa el de respaldo; `modelo` en el resultado dice cuál respondió. Si la ficha no valida, se reintenta una vez pasándole los errores al modelo.
 
 ## 5. Rutas API (Next.js, contrato Tomi ↔ Agus)
 
