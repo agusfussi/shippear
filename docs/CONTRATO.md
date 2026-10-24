@@ -22,7 +22,11 @@ Encima de eso agregamos nuestro plus: la **categoría del cliente** (`premium | 
 - El color del pin en el mapa sale de `categoria`; la forma del pin, de `formato`.
 - Cada clasificación trae las **señales** que la justifican (eso es lo que hace creíble la demo).
 
-## 3. Esquema de datos (propuesta para Lauti)
+## 3. Esquema de datos (contrato aplicado por Lauti)
+
+**Integración aprobada por Lauti:** la base del prototipo se adapta a este contrato en español. Las tablas previas se conservan en el esquema privado `legacy_shippear` como respaldo, sin acceso desde el cliente. El esquema público de la aplicación queda en español. No volver a aplicar el SQL del prototipo sobre esta base.
+
+`profiles` usa `nombre` y `rol` (`vendedor | admin`); la cuenta indicada por Lauti es admin. `comercios` incluye `vendedor_asignado`, `es_demo` y `notas`; `visitas` incluye `client_request_id` y `fecha_visita`; `fotos` incluye `mime_type` y `byte_size`; `fichas` conserva el JSON completo y `request_id` para reintentos; `productos_lv` incluye `sku`, `gama`, `activo` y `es_demo`. Los identificadores y datos semilla del prototipo se preservan. La relación `visita → ficha` es única, como define este contrato.
 
 ```
 profiles      (id = auth.users.id, nombre, rol: 'vendedor'|'admin', created_at)
@@ -38,7 +42,7 @@ productos_lv  (id, nombre, categoria, presentacion, formatos_objetivo text[], ns
 - **Comercio ≠ visita.** Un comercio tiene muchas visitas; cada visita tiene sus fotos, su ficha y su chat. Eso nos da el "historial por comercio" del PLUS gratis.
 - `fichas.formato`, `fichas.nse` y `fichas.categoria` se duplican como columnas (además de `data`) para que el dashboard y el mapa filtren sin leer el JSON.
 - `modelo` + `prompt_version` = trazabilidad: sabemos qué versión del prompt generó cada ficha.
-- Fotos en Storage, bucket `fotos`, ruta `{comercio_id}/{visita_id}/{tipo}-{n}.jpg`. En la DB sólo guardamos el path.
+- Fotos en Storage, bucket **privado** `fotos`, ruta `{comercio_id}/{visita_id}/{tipo}-{uuid}.jpg` (también PNG/WebP). En la DB sólo guardamos el path. La subida se hace desde funciones de `lib/db/`; las rutas validan que cada medio pertenezca al comercio y visita del usuario. No se guardan URLs firmadas.
 - Vista para el mapa: `v_comercios_ultima_ficha` (comercio + datos de su última ficha).
 
 **RLS (permisos)**
@@ -70,6 +74,8 @@ productos_lv  (id, nombre, categoria, presentacion, formatos_objetivo text[], ns
 - Los nombres de productos en `surtido` y `ofrecer_primero` **tienen que existir en `productos_lv`** (se pasa el catálogo en el prompt).
 - Feli valida la respuesta con un schema (zod) antes de guardarla. Si no valida: se reintenta una vez y si falla se devuelve error, nunca se guarda una ficha rota.
 - Los tipos TypeScript de esta ficha viven en un solo archivo (`types/ficha.ts`) y todos lo importan.
+- Campos numéricos que no puedan observarse (`cajas`, `m2_estimados`, `gondolas`, `share_frentes_pct`, `marcas`) aceptan `null`; `tamano` admite `desconocido`. `limitaciones` es un campo obligatorio de texto para evitar presentar una estimación como certeza. `le_falta` sólo contiene ausencias respaldadas; los productos a confirmar pueden aparecer en `ofrecer_primero` con su argumento. Máximo tres ofertas. El NSE es una hipótesis comercial agregada, no información personal de los clientes.
+- Gemini se llama mediante el SDK oficial `@google/genai`, exclusivamente en servidor. La clave se configura en `GEMINI_API_KEY`; el modelo se elige con `GEMINI_MODEL`. Se registran `modelo` y `prompt_version`.
 
 ## 5. Rutas API (Next.js, contrato Tomi ↔ Agus)
 
@@ -82,6 +88,20 @@ productos_lv  (id, nombre, categoria, presentacion, formatos_objetivo text[], ns
 | POST | `/api/visitas/:id/chat` | vendedor | Repregunta con la ficha + fotos como contexto |
 | GET | `/api/mapa` | vendedor/admin | Comercios + última ficha (admin recibe más campos) |
 | GET | `/api/metricas` | admin | Agregados para el dashboard |
+| GET | `/api/auth/session` | autenticado | Usuario y perfil real de Supabase |
+| POST | `/api/auth/login` | público | Login con email y contraseña; establece cookies |
+| POST | `/api/auth/logout` | autenticado | Cierra la sesión real |
+| GET/PATCH | `/api/equipo` | admin | Lista perfiles / habilita o bloquea un vendedor |
+| GET | `/api/productos` | autenticado | Catálogo activo |
+| GET | `/api/comercios` | autenticado | Comercios visibles y resumen para selector |
+| GET | `/api/visitas` | autenticado | Historial autorizado |
+| PATCH | `/api/auth/profile` | autenticado | Actualiza únicamente el nombre propio |
+
+Las rutas reciben nombres de campos en español y devuelven errores JSON con estado HTTP. `/api/mapa` entrega únicamente datos básicos a vendedores; las fichas, argumentos y competencia de otras visitas se reservan al admin. Los supervisores del prototipo se representan como admin en este contrato de dos roles.
+
+`/api/visitas/:id/analizar` recibe `{request_id}`; el servidor carga sus fotos y catálogo, valida la salida y llama a `guardar_ficha`. Un reintento devuelve la ficha existente sin duplicarla. Para una nueva evaluación se crea una nueva visita. `/api/visitas/:id/chat` recibe `{contenido,request_id}` y guarda mensajes; sólo el servidor escribe como assistant.
+
+No hay respuestas de IA ni usuarios simulados como fallback: si faltan credenciales se informa la configuración pendiente. Los datos DEMO siguen identificados como tales. El primer flujo integrado usa fotografías JPEG/PNG/WebP; video/audio requieren un flujo de captura y validación adicional.
 
 La API key del modelo **sólo** vive en el servidor (rutas API). Nunca en el cliente.
 
@@ -99,7 +119,7 @@ docs/           este contrato
 - `main` siempre deployable (Vercel deploya `main`). Cada uno trabaja en su rama: `front/...`, `db/...`, `api/...`, `ai/...`.
 - PR chico → lo revisa/mergea el integrador. Mergear seguido (cada 1–2 h), no al final.
 - Variables (`.env.local`, nunca commitear; mismas en Vercel):
-  `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `AI_API_KEY`.
+  `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `GEMINI_API_KEY`, `GEMINI_MODEL`. Se aceptan `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` y `AI_API_KEY` como alias para instalaciones existentes. La publishable key identifica la aplicación; la identidad y los permisos del usuario provienen de su sesión y perfil.
 - Tipos de la DB generados con `supabase gen types typescript` → `types/db.ts` cada vez que Lauti cambia el esquema.
 
 ## 7. Checkpoints de integración

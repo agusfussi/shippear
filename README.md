@@ -1,96 +1,22 @@
-\# 🚀 Shippe.AR
+# Shippe.AR
 
+Asistente para vendedores de La Virginia: fotos del comercio → ficha y propuestas de surtido → chat e información para administración.
 
+Stack: Next.js App Router + TypeScript, Supabase (Auth/Postgres/Storage/RLS) y Gemini en servidor.
 
-> Asistente inteligente para vendedores: analizá un comercio a partir de fotos de sus góndolas y obtené una propuesta de surtido ideal.
+## Empezar
 
+1. `npm ci`
+2. Copiar `.env.example` a `.env.local` y completar Supabase. Las claves privadas van sólo en el servidor.
+3. `npm run dev`
 
+La base remota ya está migrada al contrato en español. Los datos cargados están identificados como DEMO. No ejecutar nuevamente las migraciones a mano sobre el proyecto existente.
 
-\## 📌 Sobre el proyecto
+- [Contrato del equipo](docs/CONTRATO.md)
+- [Configuración, plan y pruebas pendientes](docs/INTEGRACION_SUPABASE.md)
+- [Pruebas SQL de permisos](supabase/tests/contrato_rls.sql)
 
+Verificación: `npm run build`, `npm run lint`, `npm test`.
 
-
-\*\*Shippe.AR\*\* es una solución desarrollada para la \*\*Hackathon SHIPPE.AR – Edición #3\*\*, cuyo objetivo es ayudar a los vendedores a tomar decisiones rápidas y fundamentadas cuando visitan un comercio nuevo.
-
-
-
-A partir de fotografías de las góndolas del local, el asistente analiza el contexto del comercio y genera una ficha con información relevante para definir qué productos ofrecer.
-
-
-
-La solución está pensada para que el vendedor pueda \*\*elegir el comercio, subir las fotos tomadas durante la visita y conversar con el asistente para obtener recomendaciones\*\*. :chatgpt-content-reference{index="1"}
-
-
-
-\---
-
-
-
-\## 🎯 Objetivo
-
-
-
-Ayudar al vendedor a responder rápidamente:
-
-
-
-\- ¿Qué tipo de comercio es?
-
-\- ¿Qué público tiene?
-
-\- ¿Qué productos de La Virginia debería ofrecer?
-
-\- ¿Qué productos faltan en la góndola?
-
-\- ¿Qué debería ofrecer primero?
-
-\- ¿Qué argumento puede utilizar para realizar la propuesta?
-
-\- ¿Qué está haciendo la competencia en ese comercio?
-
-
-
-\---
-
-
-
-\## 🧠 ¿Cómo funciona?
-
-
-
-El vendedor realiza una visita a un comercio y carga fotografías de sus góndolas.
-
-
-
-El asistente utiliza esas imágenes como contexto para analizar el punto de venta y generar una recomendación. \*\*No es necesario detectar individualmente cada producto\*\*, sino interpretar el contexto general del local. :chatgpt-content-reference{index="2"}
-
-
-
-\### Flujo
-
-
-
-```text
-
-📸 Fotos del comercio
-
-&#x20;       ↓
-
-🤖 Análisis mediante IA
-
-&#x20;       ↓
-
-🏪 Perfil del punto de venta
-
-&#x20;       ↓
-
-👥 Público / nivel socioeconómico
-
-&#x20;       ↓
-
-☕ Surtido ideal La Virginia
-
-&#x20;       ↓
-
-💬 Recomendaciones para el vendedor
+Gemini requiere `GEMINI_API_KEY`, `GEMINI_MODEL` y `SUPABASE_SECRET_KEY`. Si faltan, la aplicación informa la configuración pendiente; no utiliza respuestas simuladas.
 

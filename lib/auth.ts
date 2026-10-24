@@ -1,50 +1,15 @@
-export type UserRole = "admin" | "seller"
+import type { AppUser } from "../types/api"
+import { api, post } from "./client-api"
 
-export type DemoUser = {
-  email: string
-  name: string
-  role: UserRole
-  zone?: string
+export type UserRole = AppUser["role"]
+
+export async function getSession(): Promise<AppUser | null> {
+  const response = await fetch("/api/auth/session", { cache: "no-store", credentials: "same-origin" })
+  if (response.status === 401 || response.status === 403) return null
+  if (!response.ok) throw new Error("No se pudo verificar la sesión. Revisá la configuración de Supabase")
+  return response.json()
 }
-
-const SESSION_KEY = "shippear-session"
-const USERS_KEY = "shippear-users"
-
-export const demoUsers: DemoUser[] = [
-  { email: "admin@shippear.ar", name: "Agustín Fussi", role: "admin" },
-  { email: "martina@shippear.ar", name: "Martina Ríos", role: "seller", zone: "Zona Norte" },
-]
-
-export function getUsers(): DemoUser[] {
-  if (typeof window === "undefined") return demoUsers
-  try {
-    const stored = window.sessionStorage.getItem(USERS_KEY)
-    return stored ? JSON.parse(stored) : demoUsers
-  } catch {
-    return demoUsers
-  }
-}
-
-export function saveUsers(users: DemoUser[]) {
-  window.sessionStorage.setItem(USERS_KEY, JSON.stringify(users))
-}
-
-export function getSession(): DemoUser | null {
-  if (typeof window === "undefined") return null
-  try {
-    const stored = window.sessionStorage.getItem(SESSION_KEY)
-    return stored ? JSON.parse(stored) : null
-  } catch {
-    return null
-  }
-}
-
-export function signIn(email: string): DemoUser | null {
-  const user = getUsers().find((candidate) => candidate.email.toLowerCase() === email.trim().toLowerCase() && !(candidate as DemoUser & { disabled?: boolean }).disabled)
-  if (user) window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(user))
-  return user ?? null
-}
-
-export function signOut() {
-  window.sessionStorage.removeItem(SESSION_KEY)
-}
+export function signIn(email: string, password: string) { return post<AppUser>("/api/auth/login", { email, password }) }
+export function signOut() { return post("/api/auth/logout", {}) }
+export function signUp(nombre: string, email: string, password: string) { return post<{ mensaje: string }>("/api/auth/signup", { nombre, email, password }) }
+export function updateName(nombre: string) { return api("/api/auth/profile", { method: "PATCH", body: JSON.stringify({ nombre }) }) }

@@ -6,9 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "node --import tsx --test tests/ficha.test.ts tests/http-guards.test.ts",
+    "test:smoke": "node tests/http-smoke.mjs"
   },
   "dependencies": {
+    "@google/genai": "2.31.0",
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.118.0",
     "@tailwindcss/postcss": "latest",
     "leaflet": "latest",
     "lucide-react": "latest",
@@ -16,15 +21,20 @@
     "react": "latest",
     "react-dom": "latest",
     "react-leaflet": "latest",
-    "recharts": "latest"
+    "recharts": "latest",
+    "server-only": "0.0.1",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@types/leaflet": "latest",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.4.3",
     "postcss": "latest",
     "tailwindcss": "latest",
+    "tsx": "4.23.15",
     "typescript": "latest"
   }
 }

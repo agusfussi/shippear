@@ -1,52 +1,805 @@
 "use client"
 
-import "leaflet/dist/leaflet.css"
 import dynamic from "next/dynamic"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
-import { getSession, getUsers, saveUsers, signOut, type DemoUser } from "../../lib/auth"
-import { Activity, ArrowLeft, BarChart3, Layers3, MapPin, Search, Users } from "lucide-react"
-function MapContainer({ children, className }: { children: React.ReactNode; className?: string; [key: string]: unknown }) { return <div className={className}>{children}</div> }
-function TileLayer(_props: Record<string, unknown>) { return null }
-function CircleMarker({ children, position, center }: { children: React.ReactNode; position?: [number, number]; center?: [number, number]; [key: string]: unknown }) { const point = position ?? center ?? [0, 0]; return <div className="absolute left-1/2 top-1/2 rounded-full bg-[#2166f3] p-2" style={{ transform: `translate(${point[1] + 38.3816}px, ${point[0] + 34.6037}px)` }}>{children}</div> }
-function Popup({ children }: { children: React.ReactNode; [key: string]: unknown }) { return <div className="rounded-lg bg-white px-3 py-2 text-xs shadow-lg">{children}</div> }
+import {
+  AlertTriangle,
+  BarChart3,
+  Boxes,
+  CheckCircle2,
+  Compass,
+  Layers,
+  LogOut,
+  MapPin,
+  PackageCheck,
+  ShieldAlert,
+  Sparkles,
+  Store,
+  TrendingUp,
+  Users,
+} from "lucide-react"
+import { getSession, signOut } from "../../lib/auth"
+import { api } from "../../lib/client-api"
+import type { MapStore } from "../../types/api"
 
-const stores = [
-  { name: "Autoservicio El Encuentro", type: "Almacén", seller: "Martina Ríos", visits: 8, position: [-34.6037, -58.3816] as [number, number], color: "#2166f3" },
-  { name: "Despensa Don Carlos", type: "Despensa", seller: "Lucas Vega", visits: 5, position: [-34.6092, -58.3924] as [number, number], color: "#32a269" },
-  { name: "Almacén La Esquina", type: "Almacén", seller: "Martina Ríos", visits: 7, position: [-34.5961, -58.3692] as [number, number], color: "#f0a529" },
-  { name: "Supermercado Norte", type: "Supermercado", seller: "Sofía Cruz", visits: 11, position: [-34.5845, -58.3755] as [number, number], color: "#9b6ee5" },
-]
-const sales = [18, 24, 21, 29, 34, 16, 8]
+const CoverageMap = dynamic(() => import("../map/customer-map"), { ssr: false })
 
-type Section = "map" | "analytics" | "team" | "products"
-export default function AdminPage() {
-  const [section, setSection] = useState<Section>("map")
-  const [ready, setReady] = useState(false)
-  const [users, setUsers] = useState<DemoUser[]>([])
-  useEffect(() => {
-    const user = getSession()
-    if (!user) window.location.href = "/login"
-    else if (user.role !== "admin") window.location.href = "/"
-    else { setUsers(getUsers()); setReady(true) }
-  }, [])
-  const [query, setQuery] = useState("")
-  const [active, setActive] = useState(stores[0])
-  const filtered = useMemo(() => stores.filter((store) => `${store.name} ${store.seller}`.toLowerCase().includes(query.toLowerCase())), [query])
-  if (!ready) return <main className="grid min-h-screen place-items-center bg-[#f5f8fc] text-sm text-[#718096]">Verificando acceso...</main>
-  return <div className="min-h-screen bg-[#f5f8fc] text-[#17243a]"><header className="flex h-[73px] items-center justify-between border-b border-[#e6ebf2] bg-white px-5 sm:px-9"><div className="flex items-center gap-3"><a href="/" className="grid size-8 place-items-center rounded-lg text-[#718096] hover:bg-[#f1f5fa]" aria-label="Volver"><ArrowLeft size={17}/></a><div><p className="text-xs text-[#718096]">Shippe.AR / Operaciones</p><h1 className="text-[19px] font-bold">Panel de ventas</h1></div></div><div className="flex items-center gap-3"><span className="text-xs font-semibold text-[#32a269]">● Datos actualizados</span><button onClick={() => { signOut(); window.location.href = "/login" }} className="rounded-lg border border-[#dce4ef] px-3 py-2 text-xs font-semibold text-[#52627b] transition hover:bg-[#f5f8fc]">Cerrar sesión</button></div></header><div className="flex"><aside className="hidden min-h-[calc(100vh-73px)] w-[248px] flex-col bg-[#0b1f3a] text-white lg:flex"><div className="flex items-center gap-3 px-7 py-7"><div className="grid size-9 place-items-center rounded-xl bg-[#2166f3]"><Activity size={18}/></div><b className="text-[19px]">Shippe<span className="text-[#6d9dff]">.AR</span></b></div><nav className="px-4"><p className="px-3 pb-3 text-[10px] font-bold uppercase tracking-[.16em] text-[#7890b3]">Management</p><Side icon={<MapPin size={17}/>} text="Mapa de comercios" active={section === "map"} onClick={() => setSection("map")}/><Side icon={<BarChart3 size={17}/>} text="Analytics" active={section === "analytics"} onClick={() => setSection("analytics")}/><Side icon={<Users size={17}/>} text="Equipo de ventas" active={section === "team"} onClick={() => setSection("team")}/><Side icon={<Layers3 size={17}/>} text="Productos" active={section === "products"} onClick={() => setSection("products")}/></nav></aside><main className="min-w-0 flex-1"><div className="mx-auto max-w-[1180px] p-5 sm:p-8">{section === "map" && <ClientMapSection query={query} setQuery={setQuery} filtered={filtered} active={active} setActive={setActive}/>} {section === "analytics" && <Analytics/>} {section === "team" && <TeamSection users={users} setUsers={setUsers}/>} {section === "products" && <Placeholder title="Productos" text="Consultá el catálogo y el rendimiento por producto."/>}</div></main></div></div>
+type Metricas = {
+  comercios: number
+  visitas: number
+  fichas: number
+  recomendaciones: number
+  comercios_demo: number
+  categorias: Record<string, number>
 }
-function Side({icon,text,active,onClick}:{icon:React.ReactNode,text:string,active:boolean,onClick:()=>void}) { return <button onClick={onClick} className={`mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition ${active ? "bg-[#2166f3] font-semibold" : "text-[#a9bad5] hover:bg-[#17365f]"}`}>{icon}{text}</button> }
-function MapSection({query,setQuery,filtered,active,setActive}:{query:string,setQuery:(v:string)=>void,filtered:typeof stores,active:typeof stores[number],setActive:(v:typeof stores[number])=>void}) { return <><div className="mb-7 flex items-end justify-between"><div><p className="text-xs font-semibold text-[#2166f3]">Resumen operativo</p><h2 className="mt-1 text-2xl font-bold">Mapa de comercios</h2></div><span className="rounded-full bg-[#e9f0ff] px-3 py-1.5 text-xs font-semibold text-[#2166f3]">{stores.length} puntos</span></div><div className="grid gap-5 lg:grid-cols-[300px_1fr]"><section className="rounded-2xl border border-[#dce4ef] bg-white p-4"><h3 className="font-bold">Clientes y comercios</h3><p className="mt-1 text-xs text-[#718096]">Seleccioná un comercio para centrar el mapa.</p><label className="relative mt-5 block"><Search className="absolute left-3 top-3 text-[#8b98aa]" size={15}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar comercio o vendedor" className="h-10 w-full rounded-lg border border-[#dce4ef] pl-9 pr-3 text-xs outline-none focus:border-[#2166f3]"/></label><div className="mt-4 flex flex-col gap-2">{filtered.map(store=><button key={store.name} onClick={()=>setActive(store)} className={`rounded-xl border p-3 text-left ${active.name===store.name?"border-[#2166f3] bg-[#e9f0ff]":"border-[#e6ebf2] hover:bg-[#f5f8fc]"}`}><b className="block truncate text-xs">{store.name}</b><span className="mt-1 block text-[11px] text-[#718096]">{store.seller} · {store.visits} visitas</span></button>)}</div></section><section className="overflow-hidden rounded-2xl border border-[#dce4ef] bg-white"><div className="border-b border-[#e6ebf2] px-5 py-4"><h3 className="font-bold">Mapa de cobertura</h3><p className="mt-1 text-xs text-[#718096]">Mapa preparado para sumar Google Maps más adelante.</p></div><div className="h-[520px]"><MapContainer center={active.position} zoom={14} scrollWheelZoom className="z-0 h-full w-full"><TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>{stores.map(store=><CircleMarker key={store.name} center={store.position} radius={active.name===store.name?13:9} pathOptions={{color:store.color,fillColor:store.color,fillOpacity:.85}} eventHandlers={{click:()=>setActive(store)}}><Popup><b>{store.name}</b><br/>{store.seller} · {store.visits} visitas</Popup></CircleMarker>)}</MapContainer></div></section></div></> }
-const ClientMapSection = dynamic(() => Promise.resolve(MapSection), { ssr: false })
-function Analytics(){return <div><h2 className="text-2xl font-bold">Analytics</h2><p className="mt-1 text-sm text-[#718096]">Actividad del equipo · últimos 7 días</p><div className="mt-6 grid gap-4 sm:grid-cols-3">{[["Visitas", "150"], ["Recomendaciones", "240"], ["Cobertura", "86%"]].map(([label,value])=><div key={label} className="rounded-2xl border border-[#dce4ef] bg-white p-5"><p className="text-xs text-[#718096]">{label}</p><b className="mt-2 block text-2xl">{value}</b></div>)}</div><div className="mt-5 rounded-2xl border border-[#dce4ef] bg-white p-5"><h3 className="font-bold">Actividad semanal</h3><div className="mt-6 flex h-48 items-end gap-3">{sales.map((value,index)=><div key={index} className="flex flex-1 flex-col items-center gap-2"><div className="w-full rounded-t-md bg-[#2166f3]" style={{height:`${value*4}px`}}/><span className="text-[10px] text-[#718096]">{["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"][index]}</span></div>)}</div></div></div>}
-function Placeholder({title,text}:{title:string,text:string}){return <div className="rounded-2xl border border-[#dce4ef] bg-white p-8"><h2 className="text-2xl font-bold">{title}</h2><p className="mt-2 text-sm text-[#718096]">{text}</p><button className="mt-6 rounded-lg bg-[#2166f3] px-4 py-2 text-xs font-bold text-white hover:bg-[#1854d1]">Agregar registro</button></div>}
 
-function TeamSection({users,setUsers}:{users:DemoUser[],setUsers:(users:DemoUser[])=>void}) {
-  const sellers = users.filter((user) => user.role === "seller")
-  function toggleAccess(email:string) {
-    const next = users.map((user) => user.email === email ? { ...user, disabled: !(user as DemoUser & { disabled?: boolean }).disabled } : user)
-    saveUsers(next)
-    setUsers(next)
+type Persona = {
+  id: string
+  nombre: string
+  rol: string
+  activo: boolean
+}
+
+type Producto = {
+  id: string
+  nombre: string
+  categoria: string
+  presentacion: string
+  gama: string
+  es_demo: boolean
+}
+
+type AdminSection = "map" | "analytics" | "team" | "products"
+
+const CATEGORIA_META: Record<string, { label: string; color: string; bg: string; desc: string }> = {
+  premium: {
+    label: "Premium",
+    color: "#2166f3",
+    bg: "#e9f0ff",
+    desc: "Alta rotación, potencial para línea completa y lanzamientos",
+  },
+  estandar: {
+    label: "Estándar",
+    color: "#14b8a6",
+    bg: "#e6f9f6",
+    desc: "Surtido troncal consolidado con espacio de expansión",
+  },
+  basico: {
+    label: "Básico",
+    color: "#f59e0b",
+    bg: "#fef5e7",
+    desc: "Foco en SKUs de entrada y alta rotación",
+  },
+}
+
+const FORMATO_LABELS: Record<string, string> = {
+  autoservicio: "Autoservicio",
+  almacen: "Almacén",
+  kiosco: "Kiosco",
+  supermercado: "Supermercado",
+  otro: "Otro",
+}
+
+export default function AdminPage() {
+  const router = useRouter()
+  const [ready, setReady] = useState(false)
+  const [section, setSection] = useState<AdminSection>("map")
+  const [metrics, setMetrics] = useState<Metricas | null>(null)
+  const [stores, setStores] = useState<MapStore[]>([])
+  const [team, setTeam] = useState<Persona[]>([])
+  const [products, setProducts] = useState<Producto[]>([])
+  const [error, setError] = useState("")
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    getSession()
+      .then(async (u) => {
+        if (!u) {
+          router.replace("/login")
+          return
+        }
+        if (u.role !== "admin") {
+          router.replace("/")
+          return
+        }
+        setReady(true)
+        const [m, t, p, s] = await Promise.all([
+          api<Metricas>("/api/metricas"),
+          api<Persona[]>("/api/equipo"),
+          api<Producto[]>("/api/productos"),
+          api<MapStore[]>("/api/mapa"),
+        ])
+        setMetrics(m)
+        setTeam(t)
+        setProducts(p)
+        setStores(s)
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : "Error al cargar el panel"))
+  }, [router])
+
+  async function toggle(p: Persona) {
+    setBusy(true)
+    setError("")
+    try {
+      await api("/api/equipo", {
+        method: "PATCH",
+        body: JSON.stringify({ id: p.id, activo: !p.activo }),
+      })
+      setTeam((t) => t.map((u) => (u.id === p.id ? { ...u, activo: !u.activo } : u)))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo guardar")
+    } finally {
+      setBusy(false)
+    }
   }
-  return <section className="rounded-2xl border border-[#dce4ef] bg-white p-6"><div className="flex items-start justify-between gap-4"><div><h2 className="text-2xl font-bold">Equipo de ventas</h2><p className="mt-2 text-sm text-[#718096]">Habilitá o bloqueá quién puede entrar al panel vendedor.</p></div><a href="/login" className="rounded-lg bg-[#2166f3] px-4 py-2 text-xs font-bold text-white">Crear vendedor</a></div><div className="mt-6 flex flex-col gap-3">{sellers.map((seller) => { const disabled = (seller as DemoUser & { disabled?: boolean }).disabled; return <div key={seller.email} className="flex items-center justify-between rounded-xl border border-[#e6ebf2] p-4"><div><p className="text-sm font-bold">{seller.name}</p><p className="mt-1 text-xs text-[#718096]">{seller.email} · {seller.zone ?? "Sin zona"}</p></div><button onClick={()=>toggleAccess(seller.email)} className={`rounded-lg px-3 py-2 text-xs font-bold ${disabled ? "bg-[#e6f7ef] text-[#238451]" : "bg-[#fff0f0] text-[#c44754]"}`}>{disabled ? "Habilitar acceso" : "Bloquear acceso"}</button></div> })}</div></section>
+
+  const insightsAndCharts = useMemo(() => {
+    const productMap = new Map(products.map((p) => [p.id, p.nombre]))
+    const formatoCounts: Record<string, number> = {}
+    const nseCounts: Record<string, number> = { alto: 0, medio: 0, bajo: 0 }
+    const missingCounts: Record<string, { id: string; nombre: string; count: number }> = {}
+    const recommendedCounts: Record<string, { id: string; nombre: string; count: number; prioridadAlta: number }> = {}
+    const competitorCounts: Record<string, { marca: string; locales: number; avgShare: number; totalShare: number }> = {}
+
+    let highCompCount = 0
+    let analyzedStores = 0
+
+    for (const store of stores) {
+      if (store.formato) {
+        formatoCounts[store.formato] = (formatoCounts[store.formato] || 0) + 1
+      }
+      if (store.nse && store.nse in nseCounts) {
+        nseCounts[store.nse] = (nseCounts[store.nse] || 0) + 1
+      }
+      const ficha = store.ficha_data
+      if (!ficha) continue
+      analyzedStores += 1
+
+      for (const prodId of ficha.surtido?.le_falta || []) {
+        const nombre = productMap.get(prodId) || prodId
+        if (!missingCounts[prodId]) {
+          missingCounts[prodId] = { id: prodId, nombre, count: 0 }
+        }
+        missingCounts[prodId].count += 1
+      }
+
+      for (const item of ficha.ofrecer_primero || []) {
+        const nombre = productMap.get(item.producto_id) || item.producto_id
+        if (!recommendedCounts[item.producto_id]) {
+          recommendedCounts[item.producto_id] = {
+            id: item.producto_id,
+            nombre,
+            count: 0,
+            prioridadAlta: 0,
+          }
+        }
+        recommendedCounts[item.producto_id].count += 1
+        if (item.prioridad === 1) recommendedCounts[item.producto_id].prioridadAlta += 1
+      }
+
+      const share = ficha.competencia?.share_frentes_pct ?? 0
+      if (share >= 60) highCompCount += 1
+      const dom = ficha.competencia?.marca_dominante?.trim()
+      if (dom) {
+        if (!competitorCounts[dom]) {
+          competitorCounts[dom] = { marca: dom, locales: 0, avgShare: 0, totalShare: 0 }
+        }
+        competitorCounts[dom].locales += 1
+        competitorCounts[dom].totalShare += share
+        competitorCounts[dom].avgShare = Math.round(
+          competitorCounts[dom].totalShare / competitorCounts[dom].locales
+        )
+      }
+    }
+
+    const topMissing = Object.values(missingCounts)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5)
+    const topRecommended = Object.values(recommendedCounts)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5)
+    const topCompetitors = Object.values(competitorCounts)
+      .sort((a, b) => b.locales - a.locales)
+      .slice(0, 4)
+
+    const premiumCount = metrics?.categorias?.premium || stores.filter((s) => s.categoria === "premium").length
+    const estandarCount = metrics?.categorias?.estandar || stores.filter((s) => s.categoria === "estandar").length
+    const basicoCount = metrics?.categorias?.basico || stores.filter((s) => s.categoria === "basico").length
+
+    return {
+      analyzedStores,
+      formatoCounts,
+      nseCounts,
+      topMissing,
+      topRecommended,
+      topCompetitors,
+      highCompCount,
+      premiumCount,
+      estandarCount,
+      basicoCount,
+    }
+  }, [stores, products, metrics])
+
+  if (!ready) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-[#f5f8fc] px-4 text-[#17243a]">
+        {error ? (
+          <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </p>
+        ) : (
+          <div className="flex items-center gap-3 text-sm font-semibold text-[#5b6b82]">
+            <Sparkles size={18} className="animate-spin text-[#2166f3]" />
+            Verificando acceso de administrador...
+          </div>
+        )}
+      </main>
+    )
+  }
+
+  const navItems: Array<{ key: AdminSection; label: string; icon: typeof MapPin }> = [
+    { key: "map", label: "Mapa PDV", icon: MapPin },
+    { key: "analytics", label: "Métricas & IA", icon: BarChart3 },
+    { key: "team", label: "Equipo", icon: Users },
+    { key: "products", label: "Catálogo LV", icon: Boxes },
+  ]
+
+  return (
+    <main className="min-h-screen bg-[#f5f8fc] text-[#17243a]">
+      {/* Top Header */}
+      <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-2.5 border-b border-[#dce4ef] bg-white/95 px-3.5 py-3 backdrop-blur sm:px-6 sm:py-4">
+        <div className="flex items-center gap-2.5">
+          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#2166f3] text-white shadow-[0_4px_12px_rgba(33,102,243,.25)]">
+            <Sparkles size={17} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-base font-bold tracking-tight sm:text-lg">
+                Shippe<span className="text-[#2166f3]">.AR</span> · Admin
+              </h1>
+              <span className="hidden rounded-full bg-[#e9f0ff] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#2166f3] sm:inline-block">
+                La Virginia
+              </span>
+            </div>
+            <p className="text-[11px] text-[#718096]">
+              Perfil del Punto de Venta · Cobertura, fichas y foco comercial
+            </p>
+          </div>
+        </div>
+
+        <nav className="flex items-center gap-1.5 text-xs font-semibold sm:gap-2.5 sm:text-sm">
+          <Link
+            href="/"
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#dce4ef] bg-white px-2.5 text-[#17243a] hover:bg-[#f8fafd] sm:h-9 sm:px-3"
+          >
+            <Compass size={14} className="text-[#2166f3]" />
+            <span>Nueva visita</span>
+          </Link>
+          <Link
+            href="/settings"
+            className="inline-flex h-8 items-center rounded-lg border border-[#dce4ef] bg-white px-2.5 text-[#5b6b82] hover:bg-[#f8fafd] sm:h-9 sm:px-3"
+          >
+            Cuenta
+          </Link>
+          <button
+            onClick={async () => {
+              try {
+                await signOut()
+                router.replace("/login")
+              } catch (e) {
+                setError(e instanceof Error ? e.message : "No se pudo cerrar sesión")
+              }
+            }}
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#dce4ef] bg-white px-2.5 text-[#718096] hover:border-red-200 hover:bg-red-50 hover:text-red-600 sm:h-9 sm:px-3"
+          >
+            <LogOut size={14} />
+            <span className="hidden sm:inline">Cerrar sesión</span>
+          </button>
+        </nav>
+      </header>
+
+      <div className="mx-auto max-w-[1360px] px-3 py-4 sm:px-6 sm:py-6">
+        {/* Section Switcher */}
+        <nav className="mb-4 flex flex-wrap items-center justify-between gap-2 sm:mb-6">
+          <div className="flex flex-wrap gap-1.5 sm:gap-2">
+            {navItems.map(({ key, label, icon: Icon }) => {
+              const active = section === key
+              return (
+                <button
+                  key={key}
+                  onClick={() => setSection(key)}
+                  className={
+                    "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition sm:px-4 sm:py-2.5 sm:text-sm " +
+                    (active
+                      ? "bg-[#2166f3] text-white shadow-[0_6px_16px_rgba(33,102,243,.25)]"
+                      : "border border-[#dce4ef] bg-white text-[#5b6b82] hover:text-[#17243a]")
+                  }
+                >
+                  <Icon size={15} />
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+
+          {metrics && (
+            <div className="hidden items-center gap-2 rounded-xl border border-[#dce4ef] bg-white px-3 py-1.5 text-xs text-[#5b6b82] md:flex">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              <span>
+                <b>{metrics.comercios}</b> PDVs · <b>{metrics.fichas}</b> fichas validadas
+              </span>
+            </div>
+          )}
+        </nav>
+
+        {error && (
+          <p
+            role="alert"
+            className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3.5 text-xs font-medium text-red-700 sm:text-sm"
+          >
+            {error}
+          </p>
+        )}
+
+        {/* SECTION: MAP */}
+        {section === "map" && (
+          <section className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[#dce4ef] bg-white p-3.5 sm:px-5 sm:py-4">
+              <div>
+                <h2 className="text-base font-bold sm:text-lg">
+                  Mapa de Cobertura y Categorización de PDVs
+                </h2>
+                <p className="text-xs text-[#718096]">
+                  Pines coloreados por categoría de cliente (Premium, Estándar, Básico) y forma según formato comercial. Hacé clic en un local para inspeccionar su última ficha.
+                </p>
+              </div>
+              <button
+                onClick={() => setSection("analytics")}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#e9f0ff] px-3 py-1.5 text-xs font-bold text-[#2166f3] hover:bg-[#dbe7ff]"
+              >
+                <Sparkles size={14} />
+                Ver insights agénticos
+              </button>
+            </div>
+            <CoverageMap embedded />
+          </section>
+        )}
+
+        {/* SECTION: ANALYTICS & AGENTIC INSIGHTS */}
+        {section === "analytics" && (
+          <section className="space-y-5">
+            <div>
+              <h2 className="text-xl font-bold sm:text-2xl">
+                Métricas de Ejecución & Insights Agénticos
+              </h2>
+              <p className="mt-1 text-xs text-[#718096] sm:text-sm">
+                Datos consolidados en tiempo real desde Supabase (`comercios`, `visitas`, `fichas`). Las recomendaciones reflejan oportunidades detectadas en góndola (`ofrecer_primero`), no ventas confirmadas.
+              </p>
+            </div>
+
+            {metrics ? (
+              <>
+                {/* KPI Cards */}
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+                  <div className="rounded-2xl border border-[#dce4ef] bg-white p-4 sm:p-5">
+                    <div className="flex items-center justify-between text-xs font-semibold text-[#718096]">
+                      <span>Comercios PDV</span>
+                      <Store size={16} className="text-[#2166f3]" />
+                    </div>
+                    <strong className="mt-2 block text-2xl font-extrabold sm:text-3xl">
+                      {metrics.comercios}
+                    </strong>
+                    <span className="mt-1 block text-[11px] text-[#718096]">
+                      {metrics.comercios_demo} de semilla DEMO
+                    </span>
+                  </div>
+
+                  <div className="rounded-2xl border border-[#dce4ef] bg-white p-4 sm:p-5">
+                    <div className="flex items-center justify-between text-xs font-semibold text-[#718096]">
+                      <span>Visitas relevadas</span>
+                      <MapPin size={16} className="text-emerald-600" />
+                    </div>
+                    <strong className="mt-2 block text-2xl font-extrabold sm:text-3xl">
+                      {metrics.visitas}
+                    </strong>
+                    <span className="mt-1 block text-[11px] text-[#718096]">
+                      Historial auditable por vendedor
+                    </span>
+                  </div>
+
+                  <div className="rounded-2xl border border-[#dce4ef] bg-white p-4 sm:p-5">
+                    <div className="flex items-center justify-between text-xs font-semibold text-[#718096]">
+                      <span>Fichas IA validadas</span>
+                      <CheckCircle2 size={16} className="text-teal-600" />
+                    </div>
+                    <strong className="mt-2 block text-2xl font-extrabold sm:text-3xl">
+                      {metrics.fichas}
+                    </strong>
+                    <span className="mt-1 block text-[11px] text-[#718096]">
+                      100% validadas con Zod (Contrato §4)
+                    </span>
+                  </div>
+
+                  <div className="rounded-2xl border border-[#dce4ef] bg-white p-4 sm:p-5">
+                    <div className="flex items-center justify-between text-xs font-semibold text-[#718096]">
+                      <span>Oportunidades SKUs</span>
+                      <TrendingUp size={16} className="text-amber-500" />
+                    </div>
+                    <strong className="mt-2 block text-2xl font-extrabold sm:text-3xl">
+                      {metrics.recomendaciones}
+                    </strong>
+                    <span className="mt-1 block text-[11px] text-[#718096]">
+                      Sugerencias `ofrecer_primero`
+                    </span>
+                  </div>
+                </div>
+
+                {/* Bloque de Insights Agénticos */}
+                <div className="rounded-2xl border border-[#bfd4ff] bg-gradient-to-br from-[#eef4ff] via-white to-[#f5f9ff] p-4 shadow-sm sm:p-6">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#2166f3] text-white">
+                        <Sparkles size={16} />
+                      </span>
+                      <div>
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#2166f3]">
+                          Foco Comercial de la Semana · Insights Agénticos
+                        </span>
+                        <h3 className="text-base font-bold sm:text-lg">
+                          Acciones sugeridas sobre la cartera relevada
+                        </h3>
+                      </div>
+                    </div>
+                    <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#5b6b82] shadow-2xs">
+                      Basado en {insightsAndCharts.analyzedStores || metrics.fichas} fichas activas
+                    </span>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 md:grid-cols-3">
+                    {/* Insight 1: Quick Win Surtido */}
+                    <div className="rounded-xl border border-[#dce4ef] bg-white p-4">
+                      <div className="flex items-center gap-2 text-xs font-bold text-[#2166f3]">
+                        <PackageCheck size={15} />
+                        <span>1. Brecha de Surtido Prioritaria</span>
+                      </div>
+                      <p className="mt-2 text-xs leading-5 text-[#17243a] sm:text-sm">
+                        {insightsAndCharts.topMissing[0] ? (
+                          <>
+                            <b>{insightsAndCharts.topMissing[0].nombre}</b> está ausente en{" "}
+                            <b>{insightsAndCharts.topMissing[0].count}</b> comercios relevados. Priorizar su introducción en locales{" "}
+                            <b>Premium y Estándar</b> durante la próxima ruta.
+                          </>
+                        ) : (
+                          <>
+                            Priorizar la línea troncal de infusiones y especias La Virginia en los{" "}
+                            <b>{metrics.comercios}</b> comercios registrados para capturar frentes calientes.
+                          </>
+                        )}
+                      </p>
+                    </div>
+
+                    {/* Insight 2: Presión Competitiva */}
+                    <div className="rounded-xl border border-[#dce4ef] bg-white p-4">
+                      <div className="flex items-center gap-2 text-xs font-bold text-amber-600">
+                        <ShieldAlert size={15} />
+                        <span>2. Defensa de Góndola & Frentes</span>
+                      </div>
+                      <p className="mt-2 text-xs leading-5 text-[#17243a] sm:text-sm">
+                        {insightsAndCharts.topCompetitors[0] ? (
+                          <>
+                            <b>{insightsAndCharts.topCompetitors[0].marca}</b> lidera la presión competitiva en{" "}
+                            <b>{insightsAndCharts.topCompetitors[0].locales}</b> PDVs (share prom.{" "}
+                            <b>{insightsAndCharts.topCompetitors[0].avgShare}%</b>). Reforzar exhibición a altura de ojos.
+                          </>
+                        ) : (
+                          <>
+                            Se detectaron <b>{insightsAndCharts.highCompCount}</b> locales con alta ocupación de marcas rivales. Usar argumentos de rotación de `ofrecer_primero`.
+                          </>
+                        )}
+                      </p>
+                    </div>
+
+                    {/* Insight 3: Mix por Categoría */}
+                    <div className="rounded-xl border border-[#dce4ef] bg-white p-4">
+                      <div className="flex items-center gap-2 text-xs font-bold text-teal-600">
+                        <Layers size={15} />
+                        <span>3. Estrategia por Categoría PDV</span>
+                      </div>
+                      <p className="mt-2 text-xs leading-5 text-[#17243a] sm:text-sm">
+                        Cartera actual: <b>{insightsAndCharts.premiumCount} Premium</b> (empujar gama Gourmet/Reserva),{" "}
+                        <b>{insightsAndCharts.estandarCount} Estándar</b> (ampliar surtido faltante) y{" "}
+                        <b>{insightsAndCharts.basicoCount} Básico</b> (asegurar SKUs de entrada).
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Charts Grid aligned with Contract §4 */}
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {/* Categoría de Cliente */}
+                  <div className="rounded-2xl border border-[#dce4ef] bg-white p-5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-base font-bold">
+                          Categoría de Cliente (`premium | estandar | basico`)
+                        </h3>
+                        <p className="text-xs text-[#718096]">
+                          Clasificación sintética del Contrato §4 guardada en `fichas.categoria`
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 space-y-3.5">
+                      {(["premium", "estandar", "basico"] as const).map((catKey) => {
+                        const count = metrics.categorias[catKey] ?? 0
+                        const total = Math.max(metrics.fichas, 1)
+                        const pct = Math.round((count / total) * 100)
+                        const meta = CATEGORIA_META[catKey]
+                        return (
+                          <div key={catKey} className="space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className="inline-block h-2.5 w-2.5 rounded-full"
+                                  style={{ backgroundColor: meta.color }}
+                                />
+                                <span className="font-bold text-[#17243a]">{meta.label}</span>
+                                <span className="hidden text-[#718096] sm:inline">· {meta.desc}</span>
+                              </div>
+                              <span className="font-bold text-[#17243a]">
+                                {count} ({pct}%)
+                              </span>
+                            </div>
+                            <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#eef2f8]">
+                              <div
+                                className="h-full rounded-full transition-all"
+                                style={{
+                                  width: `${Math.max(count > 0 ? 6 : 0, pct)}%`,
+                                  backgroundColor: meta.color,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Formato & NSE */}
+                  <div className="rounded-2xl border border-[#dce4ef] bg-white p-5">
+                    <h3 className="text-base font-bold">
+                      Mix por Formato de Local y Nivel Socioeconómico (NSE)
+                    </h3>
+                    <p className="text-xs text-[#718096]">
+                      Distribución según última ficha activa de cada punto de venta
+                    </p>
+
+                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[#718096]">
+                          Formato (`local.formato`)
+                        </p>
+                        <div className="space-y-2">
+                          {(["autoservicio", "almacen", "kiosco", "supermercado", "otro"] as const).map(
+                            (fmt) => {
+                              const n = insightsAndCharts.formatoCounts[fmt] || 0
+                              return (
+                                <div
+                                  key={fmt}
+                                  className="flex items-center justify-between rounded-lg bg-[#f8fafd] px-3 py-1.5 text-xs"
+                                >
+                                  <span className="font-medium text-[#17243a]">
+                                    {FORMATO_LABELS[fmt] || fmt}
+                                  </span>
+                                  <b className="text-[#2166f3]">{n}</b>
+                                </div>
+                              )
+                            }
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[#718096]">
+                          NSE Inferido (`nse.nivel`)
+                        </p>
+                        <div className="space-y-2">
+                          {[
+                            { key: "alto", label: "NSE Alto", badge: "bg-indigo-50 text-indigo-700" },
+                            { key: "medio", label: "NSE Medio", badge: "bg-sky-50 text-sky-700" },
+                            { key: "bajo", label: "NSE Bajo", badge: "bg-amber-50 text-amber-700" },
+                          ].map((item) => {
+                            const n = insightsAndCharts.nseCounts[item.key] || 0
+                            return (
+                              <div
+                                key={item.key}
+                                className="flex items-center justify-between rounded-lg bg-[#f8fafd] px-3 py-2 text-xs"
+                              >
+                                <span className={`rounded-md px-2 py-0.5 font-bold ${item.badge}`}>
+                                  {item.label}
+                                </span>
+                                <b className="text-[#17243a]">{n} PDVs</b>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Top Faltantes / Oportunidades */}
+                  <div className="rounded-2xl border border-[#dce4ef] bg-white p-5">
+                    <h3 className="text-base font-bold">
+                      Top Oportunidades de Surtido (`surtido.le_falta` & `ofrecer_primero`)
+                    </h3>
+                    <p className="text-xs text-[#718096]">
+                      Productos del catálogo `productos_lv` con mayor brecha de presencia en góndola
+                    </p>
+
+                    {insightsAndCharts.topMissing.length > 0 ? (
+                      <div className="mt-4 space-y-2.5">
+                        {insightsAndCharts.topMissing.map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex items-center justify-between gap-3 rounded-xl border border-[#edf2f9] bg-[#f8fafd] px-3.5 py-2.5 text-xs"
+                          >
+                            <span className="font-semibold text-[#17243a]">{item.nombre}</span>
+                            <span className="shrink-0 rounded-full bg-[#e9f0ff] px-2.5 py-0.5 font-bold text-[#2166f3]">
+                              Falta en {item.count} PDV{item.count === 1 ? "" : "s"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-4 rounded-xl bg-[#f8fafd] p-4 text-xs text-[#718096]">
+                        Todavía no hay faltantes agregados en las fichas o todos los locales tienen surtido completo.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Presión Competitiva */}
+                  <div className="rounded-2xl border border-[#dce4ef] bg-white p-5">
+                    <h3 className="text-base font-bold">
+                      Presión Competitiva en Góndola (`competencia`)
+                    </h3>
+                    <p className="text-xs text-[#718096]">
+                      Marcas rivales dominantes y porcentaje estimado de frentes ocupados
+                    </p>
+
+                    {insightsAndCharts.topCompetitors.length > 0 ? (
+                      <div className="mt-4 space-y-2.5">
+                        {insightsAndCharts.topCompetitors.map((comp) => (
+                          <div
+                            key={comp.marca}
+                            className="flex items-center justify-between gap-3 rounded-xl border border-[#edf2f9] bg-[#f8fafd] px-3.5 py-2.5 text-xs"
+                          >
+                            <div>
+                              <b className="text-[#17243a]">{comp.marca}</b>
+                              <span className="ml-2 text-[#718096]">
+                                Dominante en {comp.locales} PDV{comp.locales === 1 ? "" : "s"}
+                              </span>
+                            </div>
+                            <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-0.5 font-bold text-amber-800">
+                              ~{comp.avgShare}% frentes
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-4 rounded-xl bg-[#f8fafd] p-4 text-xs text-[#718096]">
+                        Sin marcas competidoras dominantes registradas todavía.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Aviso de trazabilidad y datos DEMO */}
+                <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50/80 p-3.5 text-xs text-amber-900">
+                  <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-600" />
+                  <p>
+                    <b>Nota de trazabilidad:</b> Hay <b>{metrics.comercios_demo}</b> comercios identificados con{" "}
+                    <code>es_demo = true</code>. Cada visita genera una ficha validada con `modelo` y `prompt_version`; un comercio puede acumular múltiples visitas a lo largo del tiempo.
+                  </p>
+                </div>
+              </>
+            ) : (
+              <p className="mt-4 text-sm text-[#718096]">Cargando métricas...</p>
+            )}
+          </section>
+        )}
+
+        {/* SECTION: TEAM */}
+        {section === "team" && (
+          <section className="rounded-2xl border border-[#dce4ef] bg-white p-4 sm:p-6">
+            <h2 className="text-xl font-bold sm:text-2xl">Equipo de Ventas y Permisos</h2>
+            <p className="mt-1 text-xs text-[#718096] sm:text-sm">
+              Las cuentas se registran desde la pantalla de acceso o en Supabase Auth. Los permisos (`vendedor | admin` y `activo`) se verifican en el servidor mediante RLS (`profiles`).
+            </p>
+            <div className="mt-5 space-y-2.5">
+              {team.map((p) => (
+                <div
+                  key={p.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#dce4ef] bg-[#f8fafd] p-3.5 sm:p-4"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <b className="text-sm sm:text-base">
+                        {p.nombre || "Cuenta " + p.id.slice(0, 8)}
+                      </b>
+                      <span
+                        className={
+                          "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase " +
+                          (p.rol === "admin"
+                            ? "bg-[#e9f0ff] text-[#2166f3]"
+                            : "bg-slate-200 text-slate-700")
+                        }
+                      >
+                        {p.rol}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-[#718096]">
+                      {p.activo ? "Acceso habilitado" : "Cuenta deshabilitada"}
+                    </p>
+                  </div>
+                  {p.rol === "vendedor" && (
+                    <button
+                      disabled={busy}
+                      onClick={() => toggle(p)}
+                      className={
+                        "rounded-lg border px-3 py-1.5 text-xs font-bold transition disabled:opacity-50 " +
+                        (p.activo
+                          ? "border-red-200 bg-white text-red-600 hover:bg-red-50"
+                          : "border-emerald-200 bg-emerald-600 text-white hover:bg-emerald-700")
+                      }
+                    >
+                      {p.activo ? "Bloquear acceso" : "Habilitar acceso"}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* SECTION: PRODUCTS */}
+        {section === "products" && (
+          <section className="space-y-4">
+            <div>
+              <h2 className="text-xl font-bold sm:text-2xl">
+                Catálogo Activo La Virginia (`productos_lv`)
+              </h2>
+              <p className="mt-1 text-xs text-[#718096] sm:text-sm">
+                Única fuente válida de SKUs para `surtido` y `ofrecer_primero` (Regla 8 del Contrato: prohibido inventar productos fuera de esta tabla).
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {products.map((p) => (
+                <article
+                  key={p.id}
+                  className="rounded-xl border border-[#dce4ef] bg-white p-4 shadow-2xs"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="text-sm font-bold text-[#17243a] sm:text-base">{p.nombre}</h3>
+                    <span className="shrink-0 rounded-full bg-[#e9f0ff] px-2 py-0.5 text-[10px] font-bold uppercase text-[#2166f3]">
+                      {p.gama}
+                    </span>
+                  </div>
+                  <p className="mt-1.5 text-xs text-[#718096]">
+                    {p.categoria} · {p.presentacion}
+                  </p>
+                  {p.es_demo && (
+                    <p className="mt-2 inline-block rounded bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                      Semilla DEMO
+                    </p>
+                  )}
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+    </main>
+  )
 }
