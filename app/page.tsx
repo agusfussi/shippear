@@ -602,7 +602,7 @@ export default function SellerPage() {
               value={notas}
               onChange={(e) => setNotas(e.target.value)}
               maxLength={10000}
-              placeholder="Ej: autoservicio con dos cajas, mucho movimiento matutino. Adjunto fotos de fachada y góndolas..."
+              placeholder={"Respuestas del dueño (guía La Virginia):\n¿Cuántas cajas tenés? ¿Quién te repone? ¿Cuántos trabajan acá?\n¿Hacés delivery o vendés por apps? ¿Qué te pide la gente que no tenés? ¿Cuánto se lleva cada cliente?"}
               className="mt-4 min-h-28 w-full rounded-xl border border-[#dce4ef] bg-[#fbfcfe] p-3 text-xs outline-none focus:border-[#2166f3] sm:p-4 sm:text-sm"
             />
 
