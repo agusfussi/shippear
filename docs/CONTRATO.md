@@ -50,6 +50,7 @@ productos_lv  (id, nombre, categoria, presentacion, formatos_objetivo text[], ns
 **RLS (permisos)**
 - Vendedor: lee todos los comercios con `nombre, lat, lng, formato, nse` (mapa); lee/escribe sólo **sus** visitas, fotos y mensajes.
 - Admin: lee todo. El dashboard sólo lo ve admin (se chequea en el front **y** en la RLS/ruta).
+- Cuentas nuevas: se crean con `activo = false` (migración `20261024190000_perfiles_inactivos_por_defecto.sql`). No ven nada hasta que un admin las habilita desde el panel (Equipo).
 
 ## 4. Ficha del local: JSON que devuelve la IA (contrato Feli ↔ Tomi ↔ Agus)
 
