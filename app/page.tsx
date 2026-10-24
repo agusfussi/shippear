@@ -117,8 +117,12 @@ export default function SellerPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const chatDraft = useRef<{ texto: string; requestId: string } | null>(null)
 
+  // Cada archivo viaja con el tipo de su slot: la IA necesita saber cuál es la fachada.
   const files = useMemo(
-    () => [...filesBySlot.fachada, ...filesBySlot.gondola, ...filesBySlot.extra],
+    () =>
+      (["fachada", "gondola", "extra"] as FotoTipo[]).flatMap((tipo) =>
+        filesBySlot[tipo].map((archivo) => ({ archivo, tipo }))
+      ),
     [filesBySlot]
   )
 

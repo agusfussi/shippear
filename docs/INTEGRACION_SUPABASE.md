@@ -18,7 +18,7 @@ Proyecto conectado: `eferescsbtbpggcygqon` (Shippear).
 2. Copiar `.env.example` a `.env.local` y completar los valores. El archivo local nunca se sube a Git.
 3. Configurar `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` para login, comercios, visitas y mapa.
 4. Configurar `SUPABASE_SECRET_KEY` para guardar fichas/respuestas de IA y administrar acceso de vendedores.
-5. Configurar `GEMINI_API_KEY` y `GEMINI_MODEL` con un modelo disponible en Google AI Studio que admita imágenes y JSON estructurado. No hay modelo inventado como fallback.
+5. Configurar `GEMINI_API_KEY` (obligatoria). `GEMINI_MODEL` es opcional: si no se define se usa `gemini-3.5-flash`, con `gemini-3.1-flash-lite` como respaldo (ver `lib/ai/cliente.ts`).
 6. Ejecutar `npm run dev`, ingresar con una cuenta confirmada de Supabase Auth y probar una visita con fotos JPEG/PNG/WebP.
 
 Las variables equivalentes deben configurarse en el entorno de despliegue antes de incorporar el PR a main. Se aceptan los alias anteriores `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` y `AI_API_KEY`. No hace falta colocar una contraseña de Postgres en el frontend.

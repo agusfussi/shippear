@@ -29,7 +29,7 @@ async function contenidoIA(visitaId: string) {
     if (!blob) throw new ApiError(404, "No se encontró una foto")
     totalBytes += blob.size
     if (totalBytes > 12 * 1024 * 1024) throw new ApiError(413, "Las fotos superan 12 MiB; usá versiones más pequeñas")
-    imagenes.push({ mimeType: foto.mime_type, data: Buffer.from(await blob.arrayBuffer()).toString("base64") })
+    imagenes.push({ tipo: fotoSchema.shape.tipo.parse(foto.tipo), mimeType: foto.mime_type, data: Buffer.from(await blob.arrayBuffer()).toString("base64") })
   }
   const aiContext: ContextoIA = { comercio, productos, notas: ctx.visit.notas, fotos: imagenes }
   return { ...ctx, aiContext }
@@ -134,7 +134,7 @@ async function dispatch(request: Request) {
       const existing = dbResult(await ctx.client.from("fichas").select().eq("visita_id", id).maybeSingle())
       if (existing) return { ficha_id: existing.id, ficha: existing.data, reutilizada: true }
       const writer = adminClient()
-      if (!(process.env.GEMINI_API_KEY || process.env.AI_API_KEY) || !process.env.GEMINI_MODEL) throw new ApiError(503, "Falta configurar Gemini en el servidor")
+      if (!(process.env.GEMINI_API_KEY || process.env.AI_API_KEY)) throw new ApiError(503, "Falta configurar Gemini en el servidor")
       const { aiContext } = await contenidoIA(id)
       let output
       try { output = await analizarConGemini(aiContext) } catch { throw new ApiError(502, "Gemini no pudo generar una ficha válida. Podés reintentar") }
@@ -150,7 +150,7 @@ async function dispatch(request: Request) {
       if (method === "POST") {
         const input = await body(request, z.object({ contenido: z.string().trim().min(1).max(10000), request_id: uuid }))
         const writer = adminClient()
-        if (!(process.env.GEMINI_API_KEY || process.env.AI_API_KEY) || !process.env.GEMINI_MODEL) throw new ApiError(503, "Falta configurar Gemini en el servidor")
+        if (!(process.env.GEMINI_API_KEY || process.env.AI_API_KEY)) throw new ApiError(503, "Falta configurar Gemini en el servidor")
         const previous = dbResult(await ctx.client.from("mensajes").select("contenido").eq("visita_id", id).eq("request_id", input.request_id).eq("rol", "user").maybeSingle())
         if (previous && previous.contenido !== input.contenido) throw new ApiError(409, "Clave de reintento usada con otro mensaje")
         const replay = dbResult(await ctx.client.from("mensajes").select("contenido").eq("visita_id", id).eq("request_id", input.request_id).eq("rol", "assistant").maybeSingle())
