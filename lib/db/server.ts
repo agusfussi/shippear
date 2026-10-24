@@ -25,7 +25,7 @@ export async function context(adminOnly = false) {
   const { data: { user }, error } = await client.auth.getUser()
   if (error || !user) throw new ApiError(401, "Iniciá sesión para continuar")
   const { data: profile, error: profileError } = await client.from("profiles").select("id,nombre,rol,activo").eq("id", user.id).single()
-  if (profileError || !profile?.activo) throw new ApiError(403, "Cuenta sin acceso habilitado")
+  if (profileError || !profile?.activo) throw new ApiError(403, "Tu cuenta no tiene acceso habilitado. Pedile a un admin que la habilite")
   if (adminOnly && profile.rol !== "admin") throw new ApiError(403, "Se requiere rol administrador")
   const session: AppUser = { id: user.id, email: user.email || "", name: profile.nombre || user.email || "Usuario", role: profile.rol === "admin" ? "admin" : "seller", active: profile.activo }
   return { client, user, profile, session }

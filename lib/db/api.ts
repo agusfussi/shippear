@@ -51,7 +51,7 @@ async function dispatch(request: Request) {
     const client = await userClient()
     const { error } = await client.auth.signUp({ email: input.email, password: input.password, options: { data: { full_name: input.nombre } } })
     if (error) throw new ApiError(400, "No se pudo registrar la cuenta. Revisá los datos y la configuración de Auth")
-    return { ok: true, mensaje: "Revisá tu correo para confirmar la cuenta antes de ingresar" }
+    return { ok: true, mensaje: "Revisá tu correo para confirmar la cuenta. Después, un admin tiene que habilitar tu acceso" }
   }
   if (path === "/api/auth/logout" && method === "POST") {
     const client = await userClient()

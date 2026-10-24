@@ -5,6 +5,8 @@ insert into auth.users(id,email,raw_user_meta_data) values
 ('00000000-0000-4000-8000-000000000002','test-b@example.invalid','{}'),
 ('00000000-0000-4000-8000-000000000003','test-admin@example.invalid','{}');
 do $$ begin assert (select rol='vendedor' from public.profiles where id='00000000-0000-4000-8000-000000000001'),'Escalamiento en registro'; end $$;
+do $$ begin assert (select bool_and(not activo) from public.profiles where id::text like '00000000-0000-4000-8000-00000000000_'),'Cuenta nueva habilitada sin admin'; end $$;
+update public.profiles set activo=true where id::text like '00000000-0000-4000-8000-00000000000_';
 update public.profiles set rol='admin' where id='00000000-0000-4000-8000-000000000003';
 insert into public.comercios(id,nombre,creado_por) values
 ('10000000-0000-4000-8000-000000000001','Prueba A','00000000-0000-4000-8000-000000000001'),
@@ -57,7 +59,7 @@ select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000003'
 set local role authenticated;
 do $$ begin
  assert (select count(*)=12 from jsonb_array_elements(public.mapa_comercios()) j where (j->>'es_demo')::boolean and j?'ficha'),'Admin sin detalles del mapa';
- assert (select count(*)=15 from public.productos_lv where activo),'Catálogo incompleto';
+ assert (select count(*)=63 from public.productos_lv where activo and not es_demo),'Catálogo oficial incompleto';
 end $$;
 reset role;
 update public.profiles set activo=false where id='00000000-0000-4000-8000-000000000001';

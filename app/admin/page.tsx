@@ -734,7 +734,7 @@ export default function AdminPage() {
           <section className="rounded-2xl border border-[#dce4ef] bg-white p-4 sm:p-6">
             <h2 className="text-xl font-bold sm:text-2xl">Equipo de Ventas y Permisos</h2>
             <p className="mt-1 text-xs text-[#718096] sm:text-sm">
-              Las cuentas se registran desde la pantalla de acceso o en Supabase Auth. Los permisos (`vendedor | admin` y `activo`) se verifican en el servidor mediante RLS (`profiles`).
+              Las cuentas se registran desde la pantalla de acceso o en Supabase Auth y quedan deshabilitadas hasta que un admin les habilita el acceso acá. Los permisos (`vendedor | admin` y `activo`) se verifican en el servidor mediante RLS (`profiles`).
             </p>
             <div className="mt-5 space-y-2.5">
               {team.map((p) => (
