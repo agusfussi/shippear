@@ -3,7 +3,7 @@ import { z } from "zod"
 import type { Content, Part } from "@google/genai"
 import type { Ficha } from "../../types/ficha"
 import type { ProductoLV } from "./catalogo"
-import { generar } from "./gemini"
+import { generar } from "./cliente"
 import { armarPromptChat, PROMPT_TRANSCRIPCION } from "./prompt"
 import { aInlineData, validarEntradas, type AudioEntrada, type FotoEntrada } from "./tipos"
 
@@ -23,7 +23,8 @@ const respuestaAudioSchema = z.object({
   transcripcion: z.string(),
   respuesta: z.string().min(1),
 })
-const { $schema: _ignorado, ...respuestaAudioJsonSchema } = z.toJSONSchema(respuestaAudioSchema)
+const respuestaAudioJsonSchema: Record<string, unknown> = { ...z.toJSONSchema(respuestaAudioSchema) }
+delete respuestaAudioJsonSchema.$schema
 
 /**
  * Responde una repregunta del vendedor (texto o nota de voz) con la ficha y las fotos como contexto.
