@@ -1,6 +1,7 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { getSession, signOut } from "../lib/auth"
 import { ArrowUp, Camera, ChevronDown, Clock3, FileAudio, ImagePlus, MapPin, Mic, MoreHorizontal, Paperclip, Plus, Search, Send, Sparkles, Store, UserRound, X } from "lucide-react"
 
 const products = [
@@ -11,12 +12,20 @@ const products = [
 
 export default function SellerPage() {
   const [message, setMessage] = useState("")
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    const user = getSession()
+    if (!user) window.location.href = "/login"
+    else if (user.role !== "seller") window.location.href = "/admin"
+    else setReady(true)
+  }, [])
   const [sent, setSent] = useState(false)
   const [photos, setPhotos] = useState<string[]>([])
   const [audioName, setAudioName] = useState("")
   const fileRef = useRef<HTMLInputElement>(null)
   const audioRef = useRef<HTMLInputElement>(null)
   const send = () => { if (!message.trim() && !photos.length && !audioName) return; setSent(true); setMessage("") }
+  if (!ready) return <main className="grid min-h-screen place-items-center bg-[#f5f8fc] text-sm text-[#718096]">Verificando acceso...</main>
   return <div className="min-h-screen flex bg-[#f5f8fc] text-[#17243a]">
     <aside className="hidden w-[248px] shrink-0 flex-col bg-[#0b1f3a] text-white lg:flex">
       <div className="flex items-center gap-3 px-7 py-7"><div className="grid h-9 w-9 place-items-center rounded-xl bg-[#2166f3]"><Sparkles size={19}/></div><span className="text-[19px] font-bold tracking-tight">Shippe<span className="text-[#6d9dff]">.AR</span></span></div>
@@ -24,7 +33,7 @@ export default function SellerPage() {
       <div className="mt-auto border-t border-white/10 p-5"><div className="flex items-center gap-3"><div className="grid h-9 w-9 place-items-center rounded-full bg-[#d5e2ff] text-sm font-bold text-[#2166f3]">MR</div><div><p className="text-sm font-semibold">Martina Ríos</p><p className="text-xs text-[#7890b3]">Representante · Zona Norte</p></div><MoreHorizontal className="ml-auto text-[#7890b3]" size={17}/></div></div>
     </aside>
     <main className="flex min-w-0 flex-1 flex-col">
-      <header className="flex h-[73px] items-center justify-between border-b border-[#e6ebf2] bg-white px-5 sm:px-9"><div><p className="text-xs text-[#718096]">Martes, 24 de octubre</p><h1 className="text-[19px] font-bold">Nueva visita</h1></div><div className="flex items-center gap-3"><div className="hidden items-center gap-2 sm:flex"><a href="/map" className="rounded-lg border border-[#dce4ef] px-3 py-2 text-xs font-semibold text-[#52627b] transition hover:bg-[#f5f8fc]">Mapa de clientes</a><a href="/settings" aria-label="Abrir configuración" className="rounded-lg border border-[#dce4ef] px-3 py-2 text-xs font-semibold text-[#52627b] transition hover:bg-[#f5f8fc]">Configuración</a></div><button className="grid h-9 w-9 place-items-center rounded-full bg-[#e5edff] text-xs font-bold text-[#2166f3]">MR</button></div></header>
+      <header className="flex h-[73px] items-center justify-between border-b border-[#e6ebf2] bg-white px-5 sm:px-9"><div><p className="text-xs text-[#718096]">Martes, 24 de octubre</p><h1 className="text-[19px] font-bold">Nueva visita</h1></div><div className="flex items-center gap-3"><div className="hidden items-center gap-2 sm:flex"><a href="/map" className="rounded-lg border border-[#dce4ef] px-3 py-2 text-xs font-semibold text-[#52627b] transition hover:bg-[#f5f8fc]">Mapa de clientes</a><a href="/settings" aria-label="Abrir configuración" className="rounded-lg border border-[#dce4ef] px-3 py-2 text-xs font-semibold text-[#52627b] transition hover:bg-[#f5f8fc]">Configuración</a><button onClick={() => { signOut(); window.location.href = "/login" }} className="rounded-lg border border-[#dce4ef] px-3 py-2 text-xs font-semibold text-[#52627b] transition hover:bg-[#f5f8fc]">Cerrar sesión</button></div><button className="grid h-9 w-9 place-items-center rounded-full bg-[#e5edff] text-xs font-bold text-[#2166f3]">MR</button></div></header>
       <div className="mx-auto flex w-full max-w-[1040px] flex-1 flex-col px-5 py-7 sm:px-9">
         <div className="mb-7 flex items-center justify-between"><div><h2 className="text-2xl font-bold tracking-tight">¿Qué vemos hoy?</h2><p className="mt-1 text-sm text-[#718096]">Cargá información del punto de venta y recibí una recomendación.</p></div><a href="#comercio" className="hidden items-center gap-2 text-sm font-semibold text-[#2166f3] sm:flex"><Plus size={17}/> Nuevo comercio</a></div>
         <div className="mb-6 flex items-center gap-3 rounded-xl border border-[#dce4ef] bg-white px-4 py-3 shadow-[0_2px_8px_rgba(31,56,88,.03)]"><div className="grid h-8 w-8 place-items-center rounded-lg bg-[#e9f0ff] text-[#2166f3]"><Store size={16}/></div><div className="flex-1"><p className="text-[10px] font-bold uppercase tracking-wider text-[#8b98aa]">Comercio seleccionado</p><p className="text-sm font-semibold">Autoservicio El Encuentro</p></div><span className="hidden text-xs text-[#718096] sm:block">Av. San Martín 1842</span><ChevronDown size={17} className="text-[#718096]"/></div>
