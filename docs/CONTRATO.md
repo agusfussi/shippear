@@ -15,9 +15,12 @@
 
 ## 2. Decisión de producto: qué es "clasificar"
 
-El jurado evalúa lo que pide el PDF: **formato**, **nivel socioeconómico (NSE)**, **surtido ideal** y **qué ofrecer y cómo**.
-"Premium / bajo nivel" se representa con `nse` (`bajo | medio | alto`). El color en el mapa sale de `nse`; la forma del pin, de `formato`.
-Cada clasificación trae las **señales** que la justifican (eso es lo que hace creíble la demo).
+La ficha responde las 4 cosas que pide el PDF: **formato**, **nivel socioeconómico (NSE)**, **surtido ideal** y **qué ofrecer y cómo**.
+Encima de eso agregamos nuestro plus: la **categoría del cliente** (`premium | estandar | basico`), una etiqueta simple para el vendedor y para el mapa.
+
+- La categoría **no reemplaza** al NSE: es un resumen de formato + NSE + surtido, y siempre viene con un `motivo`.
+- El color del pin en el mapa sale de `categoria`; la forma del pin, de `formato`.
+- Cada clasificación trae las **señales** que la justifican (eso es lo que hace creíble la demo).
 
 ## 3. Esquema de datos (propuesta para Lauti)
 
@@ -26,14 +29,14 @@ profiles      (id = auth.users.id, nombre, rol: 'vendedor'|'admin', created_at)
 comercios     (id, nombre, direccion, lat, lng, creado_por → profiles, created_at)
 visitas       (id, comercio_id → comercios, vendedor_id → profiles, created_at)
 fotos         (id, visita_id → visitas, tipo: 'fachada'|'gondola'|'extra', storage_path, created_at)
-fichas        (id, visita_id → visitas UNIQUE, formato, nse, data jsonb,
+fichas        (id, visita_id → visitas UNIQUE, formato, nse, categoria, data jsonb,
                modelo, prompt_version, created_at)
 mensajes      (id, visita_id → visitas, rol: 'user'|'assistant', contenido, created_at)
 productos_lv  (id, nombre, categoria, presentacion, formatos_objetivo text[], nse_objetivo text[])
 ```
 
 - **Comercio ≠ visita.** Un comercio tiene muchas visitas; cada visita tiene sus fotos, su ficha y su chat. Eso nos da el "historial por comercio" del PLUS gratis.
-- `fichas.formato` y `fichas.nse` se duplican como columnas (además de `data`) para que el dashboard y el mapa filtren sin leer el JSON.
+- `fichas.formato`, `fichas.nse` y `fichas.categoria` se duplican como columnas (además de `data`) para que el dashboard y el mapa filtren sin leer el JSON.
 - `modelo` + `prompt_version` = trazabilidad: sabemos qué versión del prompt generó cada ficha.
 - Fotos en Storage, bucket `fotos`, ruta `{comercio_id}/{visita_id}/{tipo}-{n}.jpg`. En la DB sólo guardamos el path.
 - Vista para el mapa: `v_comercios_ultima_ficha` (comercio + datos de su última ficha).
@@ -55,6 +58,7 @@ productos_lv  (id, nombre, categoria, presentacion, formatos_objetivo text[], ns
   "ofrecer_primero": [
     { "producto": "Café molido 250 g", "argumento": "La categoría está en góndola y nuestra marca no; ocupa el espacio de la competencia a precio similar." }
   ],
+  "categoria": { "valor": "estandar", "motivo": "Autoservicio chico de barrio con público medio: compra marcas de primera pero sin premium." },
   "competencia": { "marcas": 2, "share_frentes_pct": 70, "promos": ["2x1 visible en café torrado"] },
   "confianza": 0.8
 }
@@ -62,6 +66,7 @@ productos_lv  (id, nombre, categoria, presentacion, formatos_objetivo text[], ns
 
 - `formato.tipo` ∈ `almacen | autoservicio | kiosco | despensa | cafeteria | otro`
 - `nse.nivel` ∈ `bajo | medio | alto`
+- `categoria.valor` ∈ `premium | estandar | basico`. Regla de consistencia: NSE `alto` no puede ser `basico` y NSE `bajo` no puede ser `premium` (se chequea al validar).
 - Los nombres de productos en `surtido` y `ofrecer_primero` **tienen que existir en `productos_lv`** (se pasa el catálogo en el prompt).
 - Feli valida la respuesta con un schema (zod) antes de guardarla. Si no valida: se reintenta una vez y si falla se devuelve error, nunca se guarda una ficha rota.
 - Los tipos TypeScript de esta ficha viven en un solo archivo (`types/ficha.ts`) y todos lo importan.
