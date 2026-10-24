@@ -266,12 +266,15 @@ export default function CustomerMapPage({ embedded = false }: { embedded?: boole
     [filtered, points, stores, selectedId]
   )
 
-  const position: [number, number] =
-    selected && selected.lat !== null && selected.lng !== null
-      ? [selected.lat, selected.lng]
-      : points[0]
-      ? [points[0].lat, points[0].lng]
-      : ROSARIO_CENTER
+  const position = useMemo<[number, number]>(
+    () =>
+      selected && selected.lat !== null && selected.lng !== null
+        ? [selected.lat, selected.lng]
+        : points[0]
+        ? [points[0].lat, points[0].lng]
+        : ROSARIO_CENTER,
+    [selected, points]
+  )
 
   const countsByCategoria = useMemo(() => {
     return {

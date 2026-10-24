@@ -77,8 +77,9 @@ const CATEGORIA_META: Record<string, { label: string; color: string; bg: string;
 const FORMATO_LABELS: Record<string, string> = {
   autoservicio: "Autoservicio",
   almacen: "Almacén",
+  despensa: "Despensa",
   kiosco: "Kiosco",
-  supermercado: "Supermercado",
+  cafeteria: "Cafetería",
   otro: "Otro",
 }
 
@@ -136,61 +137,61 @@ export default function AdminPage() {
   }
 
   const insightsAndCharts = useMemo(() => {
-    const productMap = new Map(products.map((p) => [p.id, p.nombre]))
     const formatoCounts: Record<string, number> = {}
     const nseCounts: Record<string, number> = { alto: 0, medio: 0, bajo: 0 }
-    const missingCounts: Record<string, { id: string; nombre: string; count: number }> = {}
-    const recommendedCounts: Record<string, { id: string; nombre: string; count: number; prioridadAlta: number }> = {}
-    const competitorCounts: Record<string, { marca: string; locales: number; avgShare: number; totalShare: number }> = {}
+    const missingCounts: Record<string, { nombre: string; count: number }> = {}
+    const recommendedCounts: Record<string, { nombre: string; count: number }> = {}
+    const highCompetitionStores: Array<{
+      id: string
+      nombre: string
+      share: number
+      marcas: number
+      promos: string[]
+    }> = []
 
-    let highCompCount = 0
     let analyzedStores = 0
+    let totalShareSum = 0
+    let shareSamples = 0
 
     for (const store of stores) {
-      if (store.formato) {
-        formatoCounts[store.formato] = (formatoCounts[store.formato] || 0) + 1
+      const fmt = store.formato || store.ficha?.formato.tipo || null
+      if (fmt) {
+        formatoCounts[fmt] = (formatoCounts[fmt] || 0) + 1
       }
-      if (store.nse && store.nse in nseCounts) {
-        nseCounts[store.nse] = (nseCounts[store.nse] || 0) + 1
+      const nse = store.nse || store.ficha?.nse.nivel || null
+      if (nse && nse in nseCounts) {
+        nseCounts[nse] = (nseCounts[nse] || 0) + 1
       }
-      const ficha = store.ficha_data
+
+      const ficha = store.ficha
       if (!ficha) continue
       analyzedStores += 1
 
-      for (const prodId of ficha.surtido?.le_falta || []) {
-        const nombre = productMap.get(prodId) || prodId
-        if (!missingCounts[prodId]) {
-          missingCounts[prodId] = { id: prodId, nombre, count: 0 }
+      for (const prodNombre of ficha.surtido.le_falta) {
+        if (!missingCounts[prodNombre]) {
+          missingCounts[prodNombre] = { nombre: prodNombre, count: 0 }
         }
-        missingCounts[prodId].count += 1
+        missingCounts[prodNombre].count += 1
       }
 
-      for (const item of ficha.ofrecer_primero || []) {
-        const nombre = productMap.get(item.producto_id) || item.producto_id
-        if (!recommendedCounts[item.producto_id]) {
-          recommendedCounts[item.producto_id] = {
-            id: item.producto_id,
-            nombre,
-            count: 0,
-            prioridadAlta: 0,
-          }
+      for (const item of ficha.ofrecer_primero) {
+        if (!recommendedCounts[item.producto]) {
+          recommendedCounts[item.producto] = { nombre: item.producto, count: 0 }
         }
-        recommendedCounts[item.producto_id].count += 1
-        if (item.prioridad === 1) recommendedCounts[item.producto_id].prioridadAlta += 1
+        recommendedCounts[item.producto].count += 1
       }
 
-      const share = ficha.competencia?.share_frentes_pct ?? 0
-      if (share >= 60) highCompCount += 1
-      const dom = ficha.competencia?.marca_dominante?.trim()
-      if (dom) {
-        if (!competitorCounts[dom]) {
-          competitorCounts[dom] = { marca: dom, locales: 0, avgShare: 0, totalShare: 0 }
-        }
-        competitorCounts[dom].locales += 1
-        competitorCounts[dom].totalShare += share
-        competitorCounts[dom].avgShare = Math.round(
-          competitorCounts[dom].totalShare / competitorCounts[dom].locales
-        )
+      const share = ficha.competencia.share_frentes_pct
+      if (share !== null) {
+        totalShareSum += share
+        shareSamples += 1
+        highCompetitionStores.push({
+          id: store.id,
+          nombre: store.nombre,
+          share,
+          marcas: ficha.competencia.marcas ?? 0,
+          promos: ficha.competencia.promos,
+        })
       }
     }
 
@@ -200,13 +201,23 @@ export default function AdminPage() {
     const topRecommended = Object.values(recommendedCounts)
       .sort((a, b) => b.count - a.count)
       .slice(0, 5)
-    const topCompetitors = Object.values(competitorCounts)
-      .sort((a, b) => b.locales - a.locales)
+    const topCompStores = highCompetitionStores
+      .sort((a, b) => b.share - a.share)
       .slice(0, 4)
 
-    const premiumCount = metrics?.categorias?.premium || stores.filter((s) => s.categoria === "premium").length
-    const estandarCount = metrics?.categorias?.estandar || stores.filter((s) => s.categoria === "estandar").length
-    const basicoCount = metrics?.categorias?.basico || stores.filter((s) => s.categoria === "basico").length
+    const avgCompetitorShare =
+      shareSamples > 0 ? Math.round(totalShareSum / shareSamples) : 0
+    const highCompCount = highCompetitionStores.filter((s) => s.share >= 50).length
+
+    const premiumCount =
+      metrics?.categorias?.premium ??
+      stores.filter((s) => (s.categoria || s.ficha?.categoria.valor) === "premium").length
+    const estandarCount =
+      metrics?.categorias?.estandar ??
+      stores.filter((s) => (s.categoria || s.ficha?.categoria.valor) === "estandar").length
+    const basicoCount =
+      metrics?.categorias?.basico ??
+      stores.filter((s) => (s.categoria || s.ficha?.categoria.valor) === "basico").length
 
     return {
       analyzedStores,
@@ -214,13 +225,14 @@ export default function AdminPage() {
       nseCounts,
       topMissing,
       topRecommended,
-      topCompetitors,
+      topCompStores,
+      avgCompetitorShare,
       highCompCount,
       premiumCount,
       estandarCount,
       basicoCount,
     }
-  }, [stores, products, metrics])
+  }, [stores, metrics])
 
   if (!ready) {
     return (
@@ -284,6 +296,7 @@ export default function AdminPage() {
             Cuenta
           </Link>
           <button
+            type="button"
             onClick={async () => {
               try {
                 await signOut()
@@ -309,6 +322,7 @@ export default function AdminPage() {
               return (
                 <button
                   key={key}
+                  type="button"
                   onClick={() => setSection(key)}
                   className={
                     "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition sm:px-4 sm:py-2.5 sm:text-sm " +
@@ -356,6 +370,7 @@ export default function AdminPage() {
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setSection("analytics")}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-[#e9f0ff] px-3 py-1.5 text-xs font-bold text-[#2166f3] hover:bg-[#dbe7ff]"
               >
@@ -467,7 +482,7 @@ export default function AdminPage() {
                       <p className="mt-2 text-xs leading-5 text-[#17243a] sm:text-sm">
                         {insightsAndCharts.topMissing[0] ? (
                           <>
-                            <b>{insightsAndCharts.topMissing[0].nombre}</b> está ausente en{" "}
+                            <b>{insightsAndCharts.topMissing[0].nombre}</b> falta en{" "}
                             <b>{insightsAndCharts.topMissing[0].count}</b> comercios relevados. Priorizar su introducción en locales{" "}
                             <b>Premium y Estándar</b> durante la próxima ruta.
                           </>
@@ -487,11 +502,11 @@ export default function AdminPage() {
                         <span>2. Defensa de Góndola & Frentes</span>
                       </div>
                       <p className="mt-2 text-xs leading-5 text-[#17243a] sm:text-sm">
-                        {insightsAndCharts.topCompetitors[0] ? (
+                        {insightsAndCharts.topCompStores[0] ? (
                           <>
-                            <b>{insightsAndCharts.topCompetitors[0].marca}</b> lidera la presión competitiva en{" "}
-                            <b>{insightsAndCharts.topCompetitors[0].locales}</b> PDVs (share prom.{" "}
-                            <b>{insightsAndCharts.topCompetitors[0].avgShare}%</b>). Reforzar exhibición a altura de ojos.
+                            Share competitivo promedio del <b>{insightsAndCharts.avgCompetitorShare}%</b> (máximo en{" "}
+                            <b>{insightsAndCharts.topCompStores[0].nombre}</b> con{" "}
+                            <b>{insightsAndCharts.topCompStores[0].share}%</b>). Reforzar exhibición a altura de ojos.
                           </>
                         ) : (
                           <>
@@ -579,25 +594,25 @@ export default function AdminPage() {
                     <div className="mt-4 grid gap-4 sm:grid-cols-2">
                       <div>
                         <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[#718096]">
-                          Formato (`local.formato`)
+                          Formato (`formato.tipo`)
                         </p>
                         <div className="space-y-2">
-                          {(["autoservicio", "almacen", "kiosco", "supermercado", "otro"] as const).map(
-                            (fmt) => {
-                              const n = insightsAndCharts.formatoCounts[fmt] || 0
-                              return (
-                                <div
-                                  key={fmt}
-                                  className="flex items-center justify-between rounded-lg bg-[#f8fafd] px-3 py-1.5 text-xs"
-                                >
-                                  <span className="font-medium text-[#17243a]">
-                                    {FORMATO_LABELS[fmt] || fmt}
-                                  </span>
-                                  <b className="text-[#2166f3]">{n}</b>
-                                </div>
-                              )
-                            }
-                          )}
+                          {(
+                            ["autoservicio", "almacen", "despensa", "kiosco", "cafeteria", "otro"] as const
+                          ).map((fmt) => {
+                            const n = insightsAndCharts.formatoCounts[fmt] || 0
+                            return (
+                              <div
+                                key={fmt}
+                                className="flex items-center justify-between rounded-lg bg-[#f8fafd] px-3 py-1.5 text-xs"
+                              >
+                                <span className="font-medium text-[#17243a]">
+                                  {FORMATO_LABELS[fmt] || fmt}
+                                </span>
+                                <b className="text-[#2166f3]">{n}</b>
+                              </div>
+                            )
+                          })}
                         </div>
                       </div>
 
@@ -635,19 +650,23 @@ export default function AdminPage() {
                       Top Oportunidades de Surtido (`surtido.le_falta` & `ofrecer_primero`)
                     </h3>
                     <p className="text-xs text-[#718096]">
-                      Productos del catálogo `productos_lv` con mayor brecha de presencia en góndola
+                      Productos del catálogo `productos_lv` más recomendados o ausentes en góndola
                     </p>
 
-                    {insightsAndCharts.topMissing.length > 0 ? (
+                    {insightsAndCharts.topMissing.length > 0 ||
+                    insightsAndCharts.topRecommended.length > 0 ? (
                       <div className="mt-4 space-y-2.5">
-                        {insightsAndCharts.topMissing.map((item) => (
+                        {(insightsAndCharts.topMissing.length > 0
+                          ? insightsAndCharts.topMissing
+                          : insightsAndCharts.topRecommended
+                        ).map((item) => (
                           <div
-                            key={item.id}
+                            key={item.nombre}
                             className="flex items-center justify-between gap-3 rounded-xl border border-[#edf2f9] bg-[#f8fafd] px-3.5 py-2.5 text-xs"
                           >
                             <span className="font-semibold text-[#17243a]">{item.nombre}</span>
                             <span className="shrink-0 rounded-full bg-[#e9f0ff] px-2.5 py-0.5 font-bold text-[#2166f3]">
-                              Falta en {item.count} PDV{item.count === 1 ? "" : "s"}
+                              {item.count} PDV{item.count === 1 ? "" : "s"}
                             </span>
                           </div>
                         ))}
@@ -665,31 +684,31 @@ export default function AdminPage() {
                       Presión Competitiva en Góndola (`competencia`)
                     </h3>
                     <p className="text-xs text-[#718096]">
-                      Marcas rivales dominantes y porcentaje estimado de frentes ocupados
+                      Comercios con mayor porcentaje de frentes ocupados por marcas competidoras
                     </p>
 
-                    {insightsAndCharts.topCompetitors.length > 0 ? (
+                    {insightsAndCharts.topCompStores.length > 0 ? (
                       <div className="mt-4 space-y-2.5">
-                        {insightsAndCharts.topCompetitors.map((comp) => (
+                        {insightsAndCharts.topCompStores.map((comp) => (
                           <div
-                            key={comp.marca}
+                            key={comp.id}
                             className="flex items-center justify-between gap-3 rounded-xl border border-[#edf2f9] bg-[#f8fafd] px-3.5 py-2.5 text-xs"
                           >
-                            <div>
-                              <b className="text-[#17243a]">{comp.marca}</b>
+                            <div className="min-w-0">
+                              <b className="truncate text-[#17243a]">{comp.nombre}</b>
                               <span className="ml-2 text-[#718096]">
-                                Dominante en {comp.locales} PDV{comp.locales === 1 ? "" : "s"}
+                                {comp.marcas} marca{comp.marcas === 1 ? "" : "s"} rivales
                               </span>
                             </div>
                             <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-0.5 font-bold text-amber-800">
-                              ~{comp.avgShare}% frentes
+                              {comp.share}% frentes
                             </span>
                           </div>
                         ))}
                       </div>
                     ) : (
                       <p className="mt-4 rounded-xl bg-[#f8fafd] p-4 text-xs text-[#718096]">
-                        Sin marcas competidoras dominantes registradas todavía.
+                        Sin datos de frentes competitivos registrados todavía.
                       </p>
                     )}
                   </div>
@@ -745,6 +764,7 @@ export default function AdminPage() {
                   </div>
                   {p.rol === "vendedor" && (
                     <button
+                      type="button"
                       disabled={busy}
                       onClick={() => toggle(p)}
                       className={
