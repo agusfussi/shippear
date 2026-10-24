@@ -52,6 +52,8 @@ Pendiente por decisión del usuario: llamada real a Gemini. No se dispuso de cla
 
 ## Migraciones
 
+La política de lectura de visitas evalúa el vendedor de la propia fila y el rol activo. No consulta la fila nueva mediante un helper STABLE: ese patrón bloqueaba `INSERT ... RETURNING`, utilizado por `.insert(...).select()`. La corrección mantiene el acceso de vendedores sólo a sus visitas y el acceso ampliado de administradores. La prueba SQL incluye una regresión de creación con retorno y revierte sus datos de prueba.
+
 `supabase/migrations/` contiene el historial exportado del proyecto, con sus versiones reales, y la migración de adaptación. La base remota YA está migrada: no ejecutar los scripts a mano sobre ella. `types/db.ts` se generó desde el esquema aplicado. Para cambios futuros, crear una migración nueva y regenerar los tipos.
 
 No se probó una restauración local completa con Docker. La migración nueva se aplicó y sus permisos se comprobaron en la base remota existente.
