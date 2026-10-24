@@ -302,19 +302,20 @@ export default function SellerPage() {
     await enviarMensajeChat(pregunta)
   }
 
+  // Si no hay GPS no se inventan coordenadas: un punto falso ensucia el mapa.
   function capturarGps() {
-    if (typeof navigator !== "undefined" && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setLatInput(pos.coords.latitude.toFixed(5))
-          setLngInput(pos.coords.longitude.toFixed(5))
-        },
-        () => {
-          setLatInput("-32.9468")
-          setLngInput("-60.6393")
-        }
-      )
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setError("Este dispositivo no permite obtener la ubicación. Cargá las coordenadas a mano o dejalas vacías")
+      return
     }
+    setError("")
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLatInput(pos.coords.latitude.toFixed(5))
+        setLngInput(pos.coords.longitude.toFixed(5))
+      },
+      () => setError("No se pudo obtener la ubicación. Revisá el permiso de GPS o cargá las coordenadas a mano")
+    )
   }
 
   async function crearComercio(e: FormEvent<HTMLFormElement>) {

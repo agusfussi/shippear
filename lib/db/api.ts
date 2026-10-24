@@ -1,6 +1,7 @@
 import "server-only"
 import { z } from "zod"
 import { analizarConGemini, conversarConGemini, type ContextoIA } from "../ai/gemini"
+import { EntradaInvalidaError } from "../ai/tipos"
 import { validarFicha } from "../../types/ficha"
 import type { Json } from "../../types/db"
 import { adminClient, authorizedVisit, context, userClient } from "./server"
@@ -10,6 +11,13 @@ const uuid = z.string().uuid()
 const nombre = z.string().trim().min(1).max(200)
 const idempotencia = z.object({ request_id: uuid })
 const fotoSchema = z.object({ tipo: z.enum(["fachada", "gondola", "extra"]), storage_path: z.string().min(1).max(500), mime_type: z.enum(["image/jpeg", "image/png", "image/webp"]), byte_size: z.number().int().positive().max(10485760) })
+
+// Si la entrada es inválida (formato, peso) el vendedor ve el motivo; el resto queda en los logs de Vercel.
+function errorIA(error: unknown, mensaje: string) {
+  if (error instanceof EntradaInvalidaError) return new ApiError(400, error.message)
+  console.error(`Falla de IA: ${error instanceof Error ? `${error.name}: ${error.message}` : String(error)}`)
+  return new ApiError(502, mensaje)
+}
 
 async function contenidoIA(visitaId: string) {
   const ctx = await authorizedVisit(visitaId)
@@ -137,7 +145,7 @@ async function dispatch(request: Request) {
       if (!(process.env.GEMINI_API_KEY || process.env.AI_API_KEY)) throw new ApiError(503, "Falta configurar Gemini en el servidor")
       const { aiContext } = await contenidoIA(id)
       let output
-      try { output = await analizarConGemini(aiContext) } catch { throw new ApiError(502, "Gemini no pudo generar una ficha válida. Podés reintentar") }
+      try { output = await analizarConGemini(aiContext) } catch (error) { throw errorIA(error, "Gemini no pudo generar una ficha válida. Podés reintentar") }
       const result = await writer.rpc("guardar_ficha", { p_visita_id: id, p_request_id: input.request_id, p_data: output.ficha as Json, p_modelo: output.modelo, p_prompt_version: output.promptVersion })
       if (result.error?.code === "23505") {
         const concurrent = dbResult(await ctx.client.from("fichas").select().eq("visita_id", id).single())
@@ -161,7 +169,7 @@ async function dispatch(request: Request) {
         if (!previous) dbResult(await ctx.client.from("mensajes").insert({ visita_id: id, rol: "user", contenido: input.contenido, request_id: input.request_id }))
         const messages = dbResult(await ctx.client.from("mensajes").select("rol,contenido").eq("visita_id", id).order("created_at", { ascending: false }).limit(20)) || []
         let respuesta
-        try { respuesta = await conversarConGemini(aiContext, validarFicha(stored.data, aiContext.productos), messages.reverse()) } catch { throw new ApiError(502, "Gemini no pudo responder; reintentá el mensaje") }
+        try { respuesta = await conversarConGemini(aiContext, validarFicha(stored.data, aiContext.productos), messages.reverse()) } catch (error) { throw errorIA(error, "Gemini no pudo responder; reintentá el mensaje") }
         const result = await writer.from("mensajes").insert({ visita_id: id, rol: "assistant", contenido: respuesta, request_id: input.request_id })
         if (result.error?.code !== "23505") dbResult(result)
         const saved = dbResult(await ctx.client.from("mensajes").select("contenido").eq("visita_id", id).eq("rol", "assistant").eq("request_id", input.request_id).single())
