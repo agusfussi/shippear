@@ -76,14 +76,15 @@ const STORAGE_COMERCIOS_KEY = "shippear-comercios-v1"
 
 const TILE_URLS: Record<TileStyle, { url: string; label: string; attribution: string }> = {
   voyager: {
-    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-    label: "CartoDB Voyager",
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    // OpenStreetMap is the free provider for the MVP; the tile contract can later be swapped for Google Maps.
+    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    label: "OpenStreetMap",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   },
   positron: {
-    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-    label: "CartoDB Positron",
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    label: "OpenStreetMap",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   },
 }
 
