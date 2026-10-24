@@ -67,8 +67,9 @@ docs/           CONTRATO.md
 ```
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=   # solo servidor
-AI_API_KEY=                  # solo servidor
+SUPABASE_SECRET_KEY=         # solo servidor (alias: SUPABASE_SERVICE_ROLE_KEY)
+GEMINI_API_KEY=              # solo servidor (alias: AI_API_KEY)
+GEMINI_MODEL=                # modelo con visión y salida JSON
 ```
 
 ## Antes de abrir un PR
