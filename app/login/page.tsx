@@ -172,7 +172,7 @@ export default function LoginPage() {
                 {createUser ? "← Ya tengo una cuenta" : "Crear usuario vendedor"}
               </button>
 
-              <div className="mt-3.5 rounded-xl border border-[#e6ebf2] bg-[#f8fafd] p-2.5 sm:mt-5 sm:p-3.5">
+              <div className="hidden">
                 <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-[#718096]">
                   Acceso rápido de demostración
                 </p>
@@ -209,9 +209,7 @@ export default function LoginPage() {
           )}
         </div>
 
-        <p className="mt-3 text-center text-[11px] text-[#8b98aa] sm:mt-5 sm:text-xs">
-          Hackathon Shippe.AR #3 · Track La Virginia
-        </p>
+
       </section>
     </main>
   )

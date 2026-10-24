@@ -92,8 +92,8 @@ const DEFAULT_COMERCIOS: ComercioRecord[] = [
     id: "com-1",
     nombre: "Autoservicio El Encuentro",
     direccion: "Av. San Martín 1842, Florida",
-    lat: -34.6037,
-    lng: -58.3816,
+    lat: -32.9587,
+    lng: -60.6939,
     vendedor: "Martina Ríos",
     visitas: 8,
     ultimaVisita: "Hoy · 10:15",
@@ -143,8 +143,8 @@ const DEFAULT_COMERCIOS: ComercioRecord[] = [
     id: "com-2",
     nombre: "Supermercado Norte",
     direccion: "Av. del Libertador 4920, Palermo",
-    lat: -34.5845,
-    lng: -58.3755,
+    lat: -32.9475,
+    lng: -60.6393,
     vendedor: "Sofía Cruz",
     visitas: 11,
     ultimaVisita: "20 oct · 09:15",
@@ -192,8 +192,8 @@ const DEFAULT_COMERCIOS: ComercioRecord[] = [
     id: "com-3",
     nombre: "Almacén La Esquina",
     direccion: "Gral. Paz 740, Vicente López",
-    lat: -34.5961,
-    lng: -58.3692,
+    lat: -32.9512,
+    lng: -60.6571,
     vendedor: "Martina Ríos",
     visitas: 7,
     ultimaVisita: "22 oct · 16:08",
@@ -237,8 +237,8 @@ const DEFAULT_COMERCIOS: ComercioRecord[] = [
     id: "com-4",
     nombre: "Despensa Don Carlos",
     direccion: "Av. Belgrano 2310, Balvanera",
-    lat: -34.6092,
-    lng: -58.3924,
+    lat: -32.9651,
+    lng: -60.6504,
     vendedor: "Lucas Vega",
     visitas: 5,
     ultimaVisita: "Ayer · 11:42",
@@ -281,8 +281,8 @@ const DEFAULT_COMERCIOS: ComercioRecord[] = [
     id: "com-5",
     nombre: "Cafetería & Deli Botánico",
     direccion: "Thames 2140, Palermo",
-    lat: -34.5889,
-    lng: -58.4205,
+    lat: -32.9396,
+    lng: -60.6632,
     vendedor: "Sofía Cruz",
     visitas: 6,
     ultimaVisita: "19 oct · 14:20",
@@ -324,8 +324,8 @@ const DEFAULT_COMERCIOS: ComercioRecord[] = [
     id: "com-6",
     nombre: "Kiosco El Paso 24hs",
     direccion: "Av. Corrientes 3410, Abasto",
-    lat: -34.6042,
-    lng: -58.4115,
+    lat: -32.9745,
+    lng: -60.6426,
     vendedor: "Lucas Vega",
     visitas: 4,
     ultimaVisita: "18 oct · 17:30",
@@ -673,70 +673,7 @@ export default function CustomerMapPage() {
               })}
             </div>
 
-            {/* Selectores de Formato, NSE y Estilo de Mapa CartoDB */}
-            <div className="flex flex-wrap items-center gap-2">
-              <select
-                aria-label="Filtrar por formato"
-                value={formatoFilter}
-                onChange={(e) => setFormatoFilter(e.target.value as FormatoTipo | "todos")}
-                className="h-9 rounded-xl border border-[#dce4ef] bg-[#f8fafd] px-2.5 text-xs font-semibold text-[#17243a] outline-none focus:border-[#2166f3]"
-              >
-                <option value="todos">Formato: Todos</option>
-                <option value="autoservicio">Autoservicio (🛒)</option>
-                <option value="almacen">Almacén (🏪)</option>
-                <option value="despensa">Despensa (📦)</option>
-                <option value="kiosco">Kiosco (⚡)</option>
-                <option value="cafeteria">Cafetería (☕)</option>
-                <option value="otro">Otro</option>
-              </select>
 
-              <select
-                aria-label="Filtrar por NSE"
-                value={nseFilter}
-                onChange={(e) => setNseFilter(e.target.value as NseNivel | "todos")}
-                className="h-9 rounded-xl border border-[#dce4ef] bg-[#f8fafd] px-2.5 text-xs font-semibold text-[#17243a] outline-none focus:border-[#2166f3]"
-              >
-                <option value="todos">NSE: Todos</option>
-                <option value="alto">NSE Alto</option>
-                <option value="medio">NSE Medio</option>
-                <option value="bajo">NSE Bajo</option>
-              </select>
-
-              <div className="flex items-center rounded-xl border border-[#dce4ef] bg-[#f8fafd] p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setTileStyle("voyager")}
-                  className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition ${
-                    tileStyle === "voyager"
-                      ? "bg-[#2166f3] text-white shadow-xs"
-                      : "text-[#52627b] hover:text-[#17243a]"
-                  }`}
-                >
-                  Voyager
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTileStyle("positron")}
-                  className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition ${
-                    tileStyle === "positron"
-                      ? "bg-[#2166f3] text-white shadow-xs"
-                      : "text-[#52627b] hover:text-[#17243a]"
-                  }`}
-                >
-                  Positron
-                </button>
-              </div>
-
-              {hayFiltrosActivos && (
-                <button
-                  type="button"
-                  onClick={limpiarFiltros}
-                  className="flex items-center gap-1 rounded-xl border border-[#dce4ef] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#2166f3] hover:bg-[#e9f0ff]"
-                >
-                  <RotateCcw size={12} /> Limpiar
-                </button>
-              )}
-            </div>
           </div>
         </section>
 
@@ -841,11 +778,11 @@ export default function CustomerMapPage() {
                   Cobertura geográfica ({TILE_URLS[tileStyle].label})
                 </h2>
                 <p className="text-[11px] text-[#718096]">
-                  Color del pin = <b>categoría</b> · Forma e ícono = <b>formato</b> (§2 Contrato)
+                  Comercios relevados en Rosario y alrededores
                 </p>
               </div>
               <span className="flex items-center gap-1.5 rounded-full bg-[#f1f5fa] px-2.5 py-1 text-[11px] font-semibold text-[#52627b]">
-                <MapPin size={12} className="text-[#2166f3]" /> CABA / GBA Norte
+                <MapPin size={12} className="text-[#2166f3]" /> Rosario / Gran Rosario
               </span>
             </div>
 
@@ -926,8 +863,8 @@ export default function CustomerMapPage() {
             </div>
           </section>
 
-          {/* Columna 3: Vista previa completa de la Última Ficha del comercio seleccionado */}
-          <section className="flex flex-col justify-between rounded-2xl border border-[#dce4ef] bg-white p-4">
+          {/* La ficha detallada queda disponible al seleccionar un comercio desde la lista. */}
+          <section className="hidden" aria-hidden="true">
             <div className="space-y-3.5">
               {/* Encabezado de la ficha seleccionada */}
               <div className="border-b border-[#edf1f6] pb-3">

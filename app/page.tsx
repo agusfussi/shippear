@@ -1268,20 +1268,10 @@ export default function SellerPage() {
                   </div>
                   <div>
                     <h2 className="text-sm font-bold sm:text-base">
-                      Relevamiento visual por sectores (§3 Fotos)
+                      Carga de fotos del comercio
                     </h2>
-                    <p className="text-xs text-[#718096]">
-                      Subí fotos en cada slot para que la IA clasifique formato, NSE, brecha de surtido y competencia.
-                    </p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={cargarFotosDemo}
-                  className="self-start rounded-lg border border-[#dce4ef] bg-[#f8fafd] px-2.5 py-1.5 text-[11px] font-semibold text-[#2166f3] transition hover:bg-[#e9f0ff] sm:self-auto"
-                >
-                  + Cargar 3 fotos de prueba
-                </button>
               </div>
 
               {/* 3 Slots de Fotos: fachada | gondola | extra */}
