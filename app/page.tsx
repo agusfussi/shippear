@@ -1083,62 +1083,25 @@ export default function SellerPage() {
 
         {/* Contenedor principal con padding optimizado para pantallas desde 320px */}
         <div className="mx-auto flex w-full max-w-[1060px] flex-1 flex-col px-3 py-4 sm:px-8 sm:py-7">
-          {/* Selector de Comercio + Estado de Categoría */}
-          <div className="relative mb-4 sm:mb-6">
-            <div className="flex flex-col gap-2 rounded-2xl border border-[#dce4ef] bg-white p-3 shadow-[0_2px_10px_rgba(31,56,88,.04)] sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-3.5">
-              <button
-                type="button"
-                onClick={() => setSelectorOpen((o) => !o)}
-                className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
-              >
-                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#e9f0ff] text-[#2166f3]">
-                  <Store size={18} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#8b98aa]">
-                      Comercio activo
-                    </span>
-                    <span
-                      className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${catStyle.bg} ${catStyle.text} ${catStyle.border}`}
-                    >
-                      {catStyle.label}
-                    </span>
-                    <span className="rounded-full bg-[#f1f5fa] px-2 py-0.5 text-[10px] font-semibold capitalize text-[#52627b]">
-                      {comercioActual.ficha.formato.tipo}
-                    </span>
-                  </div>
-                  <p className="mt-0.5 truncate text-sm font-bold text-[#17243a] sm:text-base">
-                    {comercioActual.nombre}
-                  </p>
-                  <p className="truncate text-[11px] text-[#718096]">
-                    {comercioActual.direccion} · {comercioActual.visitas} visitas
-                  </p>
-                </div>
-                <ChevronDown
-                  size={18}
-                  className={`shrink-0 text-[#718096] transition ${selectorOpen ? "rotate-180" : ""}`}
-                />
-              </button>
-
-              <div className="flex items-center justify-between gap-2 border-t border-[#edf1f6] pt-2 sm:border-t-0 sm:pt-0">
-                <button
-                  type="button"
-                  onClick={() => setSent((prev) => !prev)}
-                  className="rounded-lg border border-[#dce4ef] bg-[#f8fafd] px-2.5 py-1.5 text-[11px] font-semibold text-[#2166f3] transition hover:bg-[#e9f0ff]"
-                >
-                  {sent ? "← Volver a cargar fotos" : "Ver ficha"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowNewComercioModal(true)}
-                  className="flex items-center gap-1 rounded-lg bg-[#2166f3] px-2.5 py-1.5 text-[11px] font-bold text-white transition hover:bg-[#1657da]"
-                >
-                  <Plus size={13} />
-                  Alta comercio
-                </button>
-              </div>
-            </div>
+          {/* Acciones compactas: el detalle del local aparece dentro de la ficha, no antes de empezar la visita. */}
+          <div className="relative mb-4 flex items-center justify-end gap-2 sm:mb-6">
+            <button
+              type="button"
+              onClick={() => setSelectorOpen((o) => !o)}
+              className="rounded-lg border border-[#dce4ef] bg-white px-3 py-2 text-xs font-semibold text-[#52627b] transition hover:bg-[#f5f8fc]"
+            >
+              Cambiar local
+              <ChevronDown size={14} className={`ml-1 inline-block transition ${selectorOpen ? "rotate-180" : ""}`} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowNewComercioModal(true)}
+              className="flex items-center gap-1 rounded-lg bg-[#2166f3] px-3 py-2 text-xs font-bold text-white transition hover:bg-[#1657da]"
+            >
+              <Plus size={13} />
+              Nuevo local
+            </button>
+          </div>
 
             {/* Dropdown Selector de Comercio */}
             {selectorOpen && (
@@ -1808,7 +1771,6 @@ export default function SellerPage() {
               })}
             </div>
           </div>
-        </div>
       </main>
 
       {/* Barra de navegación inferior móvil (ideal para iPhone SE con una mano) */}
