@@ -24,3 +24,6 @@ export function validarFicha(input: unknown, catalogo: { nombre: string }[]): Fi
   if (new Set(ficha.ofrecer_primero.map(p => p.producto)).size !== ficha.ofrecer_primero.length) throw new Error("Producto recomendado repetido")
   return ficha
 }
+
+export type FormatoTipo = z.infer<typeof formatoSchema>
+export type NseNivel = Ficha["nse"]["nivel"]

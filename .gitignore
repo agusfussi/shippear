@@ -9,3 +9,6 @@ out/
 next-env.d.ts
 *.tsbuildinfo
 supabase/.temp/
+
+# fotos y audios reales para probar la IA (scripts/probar-ia.ts)
+fotos-prueba/
