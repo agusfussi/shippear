@@ -20,8 +20,17 @@ insert into storage.objects(bucket_id,name) values
 ('fotos','10000000-0000-4000-8000-000000000002/20000000-0000-4000-8000-000000000002/gondola-test.jpg');
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000001',true);
 set local role authenticated;
-do $$ begin
+do $$ declare nueva_visita uuid; begin
  assert (select count(*)=1 from public.visitas),'Visitas ajenas visibles';
+ -- Regresión: Supabase .insert(...).select() usa INSERT RETURNING.
+ -- La excepción interna revierte sólo esta fila de prueba antes de seguir.
+ begin
+   insert into public.visitas(comercio_id,notas)
+   values('10000000-0000-4000-8000-000000000001','Regresión INSERT RETURNING') returning id into strict nueva_visita;
+   assert nueva_visita is not null,'No devuelve la visita recién creada';
+   raise exception using errcode='ZX001',message='Revertir fila de regresión';
+ exception when sqlstate 'ZX001' then null;
+ end;
  assert (select count(*)=0 from public.fichas),'Fichas ajenas visibles';
  assert (select count(*)=1 from public.profiles),'Perfiles ajenos visibles';
  assert (select count(*)=12 from public.comercios where es_demo),'Mapa básico incompleto';

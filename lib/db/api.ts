@@ -51,7 +51,13 @@ async function dispatch(request: Request) {
     const input = await body(request, z.object({ email: z.string().email(), password: z.string().min(1).max(200) }))
     const client = await userClient()
     const { error } = await client.auth.signInWithPassword(input)
-    if (error) throw new ApiError(401, "Correo o contraseña incorrectos, o correo sin confirmar")
+    if (error?.code === "invalid_credentials") throw new ApiError(401, "Correo o contraseña incorrectos")
+    if (error?.code === "email_not_confirmed") throw new ApiError(401, "Tenés que confirmar el correo antes de ingresar")
+    if (error) {
+      // Clave inválida o de otro proyecto, proveedor de email deshabilitado, etc.: el motivo queda en los logs.
+      console.error(`Login rechazado por Supabase: ${error.code ?? error.status}: ${error.message}`)
+      throw new ApiError(502, `Supabase rechazó el ingreso (${error.code ?? error.status}). Revisá que la URL y la publishable key sean del proyecto Shippear`)
+    }
     return (await context()).session
   }
   if (path === "/api/auth/signup" && method === "POST") {
